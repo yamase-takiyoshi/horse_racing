@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>X96 Bridge 1.7.19対応 時系列EV予想</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f0e6;color:#222}
+header{background:linear-gradient(135deg,#111,#444);color:#fff;padding:18px 24px;text-align:center}
+header h1{margin:0;font-size:24px}header p{margin:8px 0 0;color:#ddd}
+.container{max-width:1320px;margin:24px auto;padding:0 16px}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.box{background:#fff;border-radius:14px;padding:14px;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.box strong{display:block;font-size:21px;margin-top:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.card h2{margin:0 0 14px;border-left:6px solid #b8860b;padding-left:10px}
+.full{grid-column:1/-1}
+label{display:block;font-weight:700;margin:10px 0 4px}
+input,select,textarea{width:100%;box-sizing:border-box;padding:9px;border:1px solid #bbb;border-radius:8px;font-size:14px}
+textarea{min-height:128px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+button{border:none;background:#111;color:#fff;padding:10px 16px;border-radius:999px;cursor:pointer;font-weight:700;margin-top:10px;margin-right:6px}
+button.secondary{background:#8a6d1d}button.danger{background:#9b1c1c}button.green{background:#006837}button.blue{background:#174ea6}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+th,td{padding:8px;border-bottom:1px solid #e0e0e0;text-align:center;vertical-align:top}
+th{background:#222;color:#fff}
+.note{background:#fff3cd;border:1px solid #e6c76e;padding:12px;border-radius:10px;font-size:14px;line-height:1.6;margin-top:14px}
+.ok{background:#e8f7ed;border:1px solid #8ad09c}.warn{background:#ffe7e7;border:1px solid #d88}
+.badge{display:inline-block;color:#fff;border-radius:999px;padding:4px 10px;font-size:12px;margin:2px;background:#111}
+.ev-high{color:#c40000;font-weight:900}.ev-mid{color:#b8860b;font-weight:900}.stake{color:#006837;font-weight:900}
+.plus{color:#006837;font-weight:900}.minus{color:#c40000;font-weight:900}.status{color:#9b1c1c;font-weight:900}
+.small{font-size:12px;color:#666}.scroll{overflow:auto;max-height:540px}.selectedRow{background:#fff8d7;font-weight:800}
+canvas{width:100%;height:390px;background:#fff;border:1px solid #ccc;border-radius:12px;margin-top:12px}
+.graphPanel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.on{color:#006837;font-weight:900}.off{color:#9b1c1c;font-weight:900}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.graphPanel{grid-template-columns:1fr}}
+</style>
+</head>
+
+<body>
+<header>
+<h1>X96 Bridge 1.7.19対応 時系列EV予想</h1>
+<p>Bridge取得 / NAR・JRA race_id / 15秒ライブオッズ / 買い目上位5・10・20点グラフ / 収支管理</p>
+</header>
+
+<main class="container">
+
+<section class="summary">
+<div class="box">Bridge<strong id="bridgeState" class="off">未確認</strong></div>
+<div class="box">選択レース<strong id="raceLabel">未設定</strong></div>
+<div class="box">スナップ数<strong id="snapshotCount">0</strong></div>
+<div class="box">最高EV<strong id="maxEv">--</strong></div>
+</section>
+
+<section class="summary">
+<div class="box">今回投資<strong id="totalStake">0円</strong></div>
+<div class="box">総投資<strong id="grandStake">0円</strong></div>
+<div class="box">総払戻<strong id="grandPayout">0円</strong></div>
+<div class="box">総回収率<strong id="grandRoi">--%</strong></div>
+</section>
+
+<section class="grid">
+
+<div class="card">
+<h2>Bridge・レース設定</h2>
+
+<label>主催</label>
+<select id="org">
+<option value="NAR">地方/NAR</option>
+<option value="JRA">中央/JRA</option>
+</select>
+
+<label>日付</label>
+<input id="dateInput" type="date">
+
+<label>race_id</label>
+<input id="raceIdInput" placeholder="例：202642112511 / 202605080112">
+
+<label>レース名メモ</label>
+<input id="raceNameInput" value="選択レース">
+
+<label>発走時刻</label>
+<input id="startTime" type="datetime-local">
+
+<button class="blue" onclick="checkBridge()">Bridge確認</button>
+<button class="green" onclick="fetchRaceList()">Bridgeで開催/race_id取得</button>
+<button onclick="applyRace()">レース設定</button>
+
+<div class="note ok">
+<b>重要：</b><br>
+このHTMLは、Userscript v1.7.19が動く <b>https://yamase-takiyoshi.github.io/</b> 配下で開く前提です。<br>
+ローカル file:// で開くとBridgeが動かない場合があります。
+</div>
+
+<div class="note">
+<b>Bridge状態：</b><span id="bridgeDetail">未確認</span>
+</div>
+</div>
+
+<div class="card">
+<h2>出走馬・スコア入力</h2>
+<p class="small">形式：馬番,馬名,スコア</p>
+<textarea id="horseInput">4,コンフィグシス,105
+11,エコロガルダ,86
+10,レッドジルベスター,85
+7,アンスリウムリリー,74
+9,ショウナンライラ,72
+5,ジーティーフクフク,70</textarea>
+<button onclick="calculateWinRates()">想定勝率を計算</button>
+<div id="winRateBox"></div>
+</div>
+
+<div class="card full">
+<h2>Bridge取得レース一覧</h2>
+<div class="note ok">
+「Bridgeで開催/race_id取得」を押すと、netkeiba/JRA公式経由で取得できたrace_idをここに並べます。選択するとrace_id欄へ反映します。
+</div>
+<div class="scroll">
+<table>
+<thead>
+<tr><th>No</th><th>race_id</th><th>推定主催</th><th>表示名</th><th>選択</th></tr>
+</thead>
+<tbody id="raceListBody"></tbody>
+</table>
+</div>
+</div>
+
+<div class="card full">
+<h2>現在オッズ入力・Bridgeライブ取得</h2>
+<p class="small">手動形式：券種,組み合わせ,オッズ　/　券種：win, place, wakuren, umaren, wide, umatan, sanrenpuku, sanrentan</p>
+<textarea id="oddsInput">win,4,2.1
+place,4,1.3
+umaren,4-7,45.1
+wide,4-7,21.8
+wide,4-9,10.5
+wide,7-9,36.0
+umaren,4-9,18.0
+umatan,4-7,62.0
+sanrenpuku,4-7-9,88.0
+wide,4-11,3.2
+wide,4-10,3.6
+umaren,4-11,7.4
+umaren,4-10,8.0</textarea>
+
+<button class="blue" onclick="fetchLiveOddsOnce()">Bridge現在オッズ取得</button>
+<button class="green" onclick="startLiveOdds()">Bridge 15秒自動取得</button>
+<button class="danger" onclick="stopLiveOdds()">停止</button>
+<button onclick="addSnapshot('手動')">手動スナップ</button>
+<button onclick="buildTicketsFromLatest()">最新スナップから買い目生成</button>
+<button onclick="buildTicketsFromThreeMin()">3分前スナップから買い目生成</button>
+<button class="danger" onclick="clearSnapshots()">時系列クリア</button>
+<button onclick="runEngine()">現在欄からEV計算</button>
+
+<div class="note">
+自動取得：<strong id="autoState" class="off">停止中</strong>　
+最終取得：<strong id="lastFetch">--</strong>
+</div>
+</div>
+
+<div class="card full">
+<h2>時系列グラフ</h2>
+
+<div class="graphPanel">
+<div>
+<label>グラフ表示</label>
+<select id="graphMode" onchange="drawGraph()">
+<option value="single">個別選択</option>
+<option value="top5">買い目上位5点</option>
+<option value="top10">買い目上位10点</option>
+<option value="top20">買い目上位20点</option>
+</select>
+</div>
+<div>
+<label>個別表示買い目</label>
+<select id="graphTicketSelect" onchange="drawGraph()"></select>
+</div>
+<div>
+<label>表示指標</label>
+<select id="graphMetric" onchange="drawGraph()">
+<option value="ev">EV</option>
+<option value="odds">オッズ</option>
+<option value="prob">想定的中率</option>
+</select>
+</div>
+</div>
+
+<canvas id="graph" width="1200" height="420"></canvas>
+
+<div class="note ok">
+<b>買い目上位</b>は、EVだけの順位ではなく、<b>実際に stakeByEV() を通過して金額が付いた買い目</b>を、金額順→EV順で並べます。
+</div>
+</div>
+
+<div class="card full">
+<h2>時系列スナップショット</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>No</th><th>時刻</th><th>残り</th><th>件数</th><th>最高EV</th><th>最高EV買い目</th><th>取得元</th></tr></thead>
+<tbody id="snapshotTable"></tbody>
+</table>
+</div>
+</div>
+
+<div class="card full">
+<h2>全券種 時系列オッズ・想定勝率・EV</h2>
+<div class="scroll">
+<table>
+<thead id="timelineHead"></thead>
+<tbody id="timelineBody"></tbody>
+</table>
+</div>
+</div>
+
+<div class="card">
+<h2>買い目</h2>
+<table>
+<thead><tr><th>券種</th><th>組み合わせ</th><th>的中率</th><th>オッズ</th><th>EV</th><th>金額</th></tr></thead>
+<tbody id="ticketTable"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h2>予想紙風まとめ</h2>
+<div id="paperOutput" class="note">まだ予想はありません。</div>
+</div>
+
+<div class="card full">
+<h2>結果入力・収支登録</h2>
+<label>着順</label>
+<input id="resultOrder" placeholder="例：4-7-9">
+
+<label>払戻入力</label>
+<p class="small">形式：券種,組み合わせ,実払戻額　例：wide,4-7,10900</p>
+<textarea id="payoutInput">wide,4-7,10900
+umaren,4-7,4510
+sanrenpuku,4-7-9,8800</textarea>
+
+<button class="blue" onclick="registerResult()">結果を登録</button>
+<button class="secondary" onclick="autoPayoutFromOdds()">オッズから概算払戻</button>
+<button class="danger" onclick="resetResults()">結果リセット</button>
+<button class="green" onclick="exportCSV()">CSV出力</button>
+</div>
+
+<div class="card full">
+<h2>レース別 結果一覧・収支</h2>
+<table>
+<thead>
+<tr><th>No</th><th>レース</th><th>着順</th><th>投資</th><th>払戻</th><th>収支</th><th>回収率</th><th>的中買い目</th></tr>
+</thead>
+<tbody id="resultTable"></tbody>
+</table>
+</div>
+
+</section>
+</main>
+
+<script>
+let horses=[],winRates={},tickets=[],snapshots=[],results=[];
+let liveTimer=null,countdownTimer=null;
+const marks=["◎","○","▲","☆","△","△","△"];
+
+const BET_LABEL={
+ win:"単勝",place:"複勝",wakuren:"枠連",umaren:"馬連",wide:"ワイド",
+ umatan:"馬単",sanrenpuku:"3連複",sanrentan:"3連単"
+};
+
+const JRA_TYPE_TO_BET={1:"win",2:"wakuren",3:"umaren",4:"wide",5:"umatan",6:"sanrenpuku",7:"sanrentan",8:"place"};
+const NAR_TYPE_TO_BET={1:"win",2:"place",3:"wakuren",4:"umaren",5:"wide",6:"umatan",7:"sanrenpuku",8:"sanrentan"};
+
+function todayLocal(){
+ const d=new Date();
+ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function nowLabel(){
+ return new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}
+function ymd(){
+ return document.getElementById("dateInput").value.replaceAll("-","");
+}
+function setStatus(id,text,cls){
+ const el=document.getElementById(id);
+ el.textContent=text;
+ if(cls)el.className=cls;
+}
+function label(t){return BET_LABEL[t]||t}
+function nums(c){return String(c).split("-").map(Number).filter(n=>!isNaN(n))}
+function norm(c){return nums(c).sort((a,b)=>a-b).join("-")}
+function oddsKey(type,combo){
+ if(["wakuren","umaren","wide","sanrenpuku"].includes(type))return type+":"+norm(combo);
+ return type+":"+combo;
+}
+
+async function checkBridge(){
+ const ok=!!(window.__narBridgeFetch||window.__narBridgeDirect||window.__NAR_BRIDGE_READY__);
+ setStatus("bridgeState",ok?"OK":"未検出",ok?"on":"off");
+ document.getElementById("bridgeDetail").textContent=ok
+  ? `Bridge検出：version=${window.__narBridgeVersion||"?"}`
+  : "Bridge未検出。Userscript v1.7.19が有効か、yamase-takiyoshi.github.io配下で開いているか確認してください。";
+ return ok;
+}
+
+function bridgeByPostMessage(url,options){
+ return new Promise((resolve,reject)=>{
+  const id="br_"+Date.now()+"_"+Math.random().toString(16).slice(2);
+  const timer=setTimeout(()=>{cleanup();reject(new Error("postMessage bridge timeout"))},25000);
+  function cleanup(){clearTimeout(timer);window.removeEventListener("message",onmsg)}
+  function onmsg(ev){
+   const d=ev.data;
+   if(!d||d.__narBridge!=="response"||d.id!==id)return;
+   cleanup();
+   if(d.error)reject(new Error(d.error));
+   else resolve({status:d.status||0,text:d.text||"",finalUrl:d.finalUrl||"",profile:d.profile,validation:d.validation||""});
+  }
+  window.addEventListener("message",onmsg);
+  window.postMessage({__narBridge:"request",id,url,options:options||{}}, "*");
+ });
+}
+
+function bridgeByDom(url,options){
+ return new Promise((resolve,reject)=>{
+  const rootId="__nar_bridge_dom_v1710__";
+  const reqClass="nar-bridge-request-v1710";
+  const resClass="nar-bridge-response-v1710";
+  let root=document.getElementById(rootId);
+  if(!root){
+   root=document.createElement("div");
+   root.id=rootId;
+   root.style.cssText="display:none!important";
+   document.documentElement.appendChild(root);
+  }
+  const id="dom_"+Date.now()+"_"+Math.random().toString(16).slice(2);
+  const timer=setTimeout(()=>{cleanup();reject(new Error("DOM bridge timeout"))},25000);
+  const mo=new MutationObserver(()=>{
+   const node=root.querySelector("."+resClass+"[data-id='"+id+"']");
+   if(!node)return;
+   const status=+node.getAttribute("data-status")||0;
+   const err=node.getAttribute("data-error")||"";
+   const text=node.textContent||"";
+   const finalUrl=node.getAttribute("data-final-url")||"";
+   try{node.remove()}catch(e){}
+   cleanup();
+   if(err)reject(new Error(err));
+   else resolve({status,text,finalUrl});
+  });
+  function cleanup(){clearTimeout(timer);mo.disconnect()}
+  mo.observe(root,{childList:true,subtree:true});
+  const n=document.createElement("div");
+  n.className=reqClass;
+  n.setAttribute("data-id",id);
+  n.setAttribute("data-url",url);
+  n.setAttribute("data-method",(options&&options.method)||"GET");
+  n.setAttribute("data-headers",JSON.stringify((options&&options.headers)||{}));
+  n.textContent=(options&&options.body)||"";
+  root.appendChild(n);
+ });
+}
+
+async function bridgeFetchCompat(url,options){
+ if(window.__narBridgeFetch)return await window.__narBridgeFetch(url,options||{});
+ if(window.__narBridgeDirect)return await window.__narBridgeDirect(url,options||{});
+ try{return await bridgeByPostMessage(url,options||{})}
+ catch(e){return await bridgeByDom(url,options||{})}
+}
+
+function applyRace(){
+ const rid=document.getElementById("raceIdInput").value.trim();
+ const name=document.getElementById("raceNameInput").value.trim()||rid||"未設定";
+ document.getElementById("raceLabel").textContent=rid?name+" / "+rid:name;
+ startCountdown();
+ createPaper();
+}
+
+function startCountdown(){
+ if(countdownTimer)clearInterval(countdownTimer);
+ countdownTimer=setInterval(()=>{
+  const val=document.getElementById("startTime").value;
+  if(!val)return;
+ },1000);
+}
+
+async function fetchRaceList(){
+ await checkBridge();
+ const org=document.getElementById("org").value;
+ const date=ymd();
+ if(!/^\d{8}$/.test(date)){alert("日付を確認してください");return}
+ const urls=org==="JRA"
+  ? [`https://race.netkeiba.com/top/race_list.html?kaisai_date=${date}`]
+  : [`https://nar.netkeiba.com/top/race_list.html?kaisai_date=${date}`];
+
+ const tbody=document.getElementById("raceListBody");
+ tbody.innerHTML=`<tr><td colspan="5">Bridge取得中...</td></tr>`;
+ try{
+  const res=await bridgeFetchCompat(urls[0]);
+  const html=res.text||"";
+  const races=parseRaceListHtml(html,org);
+  tbody.innerHTML="";
+  if(!races.length){
+   tbody.innerHTML=`<tr><td colspan="5">race_idを抽出できませんでした。race_id欄へ手入力してください。</td></tr>`;
+   return;
+  }
+  races.forEach((r,i)=>{
+   tbody.innerHTML+=`<tr>
+    <td>${i+1}</td>
+    <td>${r.raceId}</td>
+    <td>${r.org}</td>
+    <td>${escapeHtml(r.label)}</td>
+    <td><button onclick="selectRaceId('${r.raceId}','${escapeAttr(r.label)}','${r.org}')">選択</button></td>
+   </tr>`;
+  });
+ }catch(e){
+  tbody.innerHTML=`<tr><td colspan="5">取得失敗：${escapeHtml(e.message||e)}</td></tr>`;
+ }
+}
+
+function parseRaceListHtml(html,org){
+ const doc=new DOMParser().parseFromString(html,"text/html");
+ const map=new Map();
+ doc.querySelectorAll("a[href], [data-race-id]").forEach(a=>{
+  const href=a.getAttribute("href")||"";
+  let rid=a.getAttribute("data-race-id")||"";
+  const m=href.match(/race_id=(20\d{10}|\d{12})/)||href.match(/(20\d{10}|\d{12})/);
+  if(!rid&&m)rid=m[1];
+  if(!/^\d{12}$/.test(rid))return;
+  const txt=(a.textContent||"").replace(/\s+/g," ").trim();
+  if(!map.has(rid))map.set(rid,{raceId:rid,org,label:txt||rid});
+ });
+ return [...map.values()].sort((a,b)=>a.raceId.localeCompare(b.raceId));
+}
+function selectRaceId(rid,label,org){
+ document.getElementById("raceIdInput").value=rid;
+ document.getElementById("raceNameInput").value=label||rid;
+ document.getElementById("org").value=org;
+ applyRace();
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function parseHorseInput(){
+ horses=document.getElementById("horseInput").value.trim().split("\n").filter(Boolean).map(line=>{
+  const [no,name,score]=line.split(",").map(x=>x.trim());
+  return {no:+no,name,score:+score};
+ });
+ return horses;
+}
+function softmax(items){
+ if(!items.length)return {};
+ const max=Math.max(...items.map(h=>h.score));
+ const ex=items.map(h=>Math.exp((h.score-max)/8));
+ const sum=ex.reduce((a,b)=>a+b,0);
+ const r={};
+ items.forEach((h,i)=>r[h.no]=ex[i]/sum);
+ return r;
+}
+function calculateWinRates(){
+ parseHorseInput();
+ winRates=softmax(horses);
+ const sorted=[...horses].sort((a,b)=>winRates[b.no]-winRates[a.no]);
+ let html="<table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>スコア</th><th>想定勝率</th></tr></thead><tbody>";
+ sorted.forEach((h,i)=>{
+  html+=`<tr><td>${marks[i]||""}</td><td>${h.no}</td><td>${escapeHtml(h.name)}</td><td>${h.score}</td><td><b>${((winRates[h.no]||0)*100).toFixed(1)}%</b></td></tr>`;
+ });
+ html+="</tbody></table>";
+ document.getElementById("winRateBox").innerHTML=html;
+ createPaper();
+}
+
+function parseOdds(){
+ return document.getElementById("oddsInput").value.trim().split("\n").filter(Boolean).map(line=>{
+  const [type,combo,odds]=line.split(",").map(x=>x.trim());
+  return {type,combo,odds:+odds};
+ }).filter(o=>o.type&&o.combo&&isFinite(o.odds));
+}
+
+function hitProb(type,combo){
+ const r=nums(combo).map(n=>winRates[n]||0);
+ if(type==="win")return r[0]||0;
+ if(type==="place")return Math.min((r[0]||0)*2.4,.95);
+ if(type==="wakuren"||type==="umaren"){if(r.length!==2)return 0;return Math.min(r[0]*r[1]*1.8,.75)}
+ if(type==="wide"){if(r.length!==2)return 0;return Math.min(r[0]*r[1]*4.5,.85)}
+ if(type==="umatan"){if(r.length!==2)return 0;return Math.min(r[0]*r[1]*.95,.65)}
+ if(type==="sanrenpuku"){if(r.length!==3)return 0;return Math.min(r[0]*r[1]*r[2]*12,.5)}
+ if(type==="sanrentan"){if(r.length!==3)return 0;return Math.min(r[0]*r[1]*r[2]*2.5,.25)}
+ return 0;
+}
+function stakeByEV(ev,p){
+ const unit=100;
+ if(ev<1.15)return 0;
+ let u=1;
+ if(ev>=1.25)u=2;
+ if(ev>=1.5)u=3;
+ if(ev>=2)u=2;
+ if(p<.02)u=Math.max(1,u-1);
+ if(p>.15&&ev>=1.25)u++;
+ return u*unit;
+}
+function makeItems(){
+ if(!horses.length)calculateWinRates();
+ return parseOdds().map(o=>{
+  const probability=hitProb(o.type,o.combo);
+  const ev=probability*o.odds;
+  const stake=stakeByEV(ev,probability);
+  return {...o,key:oddsKey(o.type,o.combo),probability,ev,stake};
+ });
+}
+
+async function fetchLiveOddsOnce(){
+ await checkBridge();
+ const rid=document.getElementById("raceIdInput").value.trim();
+ if(!/^\d{12}$/.test(rid)){alert("race_idを入力または選択してください");return}
+ const org=document.getElementById("org").value;
+ document.getElementById("lastFetch").textContent="取得中...";
+ try{
+  const odds=await fetchOddsByBridge(org,rid);
+  if(!odds.length){
+   document.getElementById("lastFetch").textContent="取得できたが解析0件";
+   alert("オッズを解析できませんでした。Bridge診断HUDとrawを確認してください。");
+   return;
+  }
+  document.getElementById("oddsInput").value=odds.map(o=>`${o.type},${o.combo},${o.odds}`).join("\n");
+  addSnapshot("Bridge");
+  document.getElementById("lastFetch").textContent=nowLabel()+" / "+odds.length+"件";
+ }catch(e){
+  document.getElementById("lastFetch").textContent="失敗 "+nowLabel();
+  alert("Bridge取得失敗："+(e.message||e));
+ }
+}
+
+async function fetchOddsByBridge(org,rid){
+ const all=[];
+ const typeMap=org==="JRA"?JRA_TYPE_TO_BET:NAR_TYPE_TO_BET;
+ const apiBase=org==="JRA"
+  ? "https://race.netkeiba.com/api/api_get_jra_odds.html"
+  : "https://nar.netkeiba.com/api/api_get_nar_odds.html";
+
+ for(const typeNo of Object.keys(typeMap)){
+  const url=org==="JRA"
+   ? `${apiBase}?race_id=${rid}&type=${typeNo}&action=update&output=json&compress=0`
+   : `${apiBase}?race_id=${rid}&type=${typeNo}`;
+  try{
+   const res=await bridgeFetchCompat(url);
+   const text=res.text||"";
+   const parsed=parseOddsResponse(text,typeMap[typeNo],typeNo);
+   parsed.forEach(o=>all.push(o));
+  }catch(e){}
+ }
+ const m=new Map();
+ all.forEach(o=>{
+  if(!o.type||!o.combo||!isFinite(o.odds)||o.odds<=0)return;
+  m.set(oddsKey(o.type,o.combo),o);
+ });
+ return [...m.values()];
+}
+
+function parseOddsResponse(text,betType,typeNo){
+ const out=[];
+ const raw=String(text||"").trim();
+ if(!raw)return out;
+
+ try{
+  const json=JSON.parse(raw);
+  extractOddsFromJson(json,betType,out);
+ }catch(e){
+  extractOddsFromText(raw,betType,out);
+ }
+ return out;
+}
+
+function extractOddsFromJson(node,betType,out,path){
+ path=path||[];
+ if(node==null)return;
+ if(Array.isArray(node)){
+  node.forEach((v,i)=>extractOddsFromJson(v,betType,out,path.concat(i)));
+  if(node.length>=2){
+   const numsOnly=node.filter(x=>/^\d+$/.test(String(x))).map(Number);
+   const oddCandidate=node.find(x=>isOddNumber(x));
+   if(oddCandidate&&numsOnly.length){
+    const combo=numsOnly.slice(0,betType==="win"||betType==="place"?1:(betType==="sanrenpuku"||betType==="sanrentan"?3:2)).join("-");
+    if(combo)out.push({type:betType,combo,odds:+oddCandidate});
+   }
+  }
+  return;
+ }
+ if(typeof node==="object"){
+  const keys=Object.keys(node);
+  keys.forEach(k=>{
+   const val=node[k];
+   if(isOddNumber(val)){
+    const comboFromKey=comboFromString(k);
+    const comboFromObj=comboFromObject(node);
+    const combo=comboFromObj||comboFromKey;
+    if(combo)out.push({type:betType,combo,odds:+val});
+   }
+  });
+  keys.forEach(k=>extractOddsFromJson(node[k],betType,out,path.concat(k)));
+  return;
+ }
+}
+function isOddNumber(v){
+ if(v==null)return false;
+ const s=String(v).trim();
+ if(!/^\d+(?:\.\d+)?$/.test(s))return false;
+ const n=+s;
+ return n>=1.0&&n<10000;
+}
+function comboFromString(s){
+ const m=String(s).match(/(\d{1,2})(?:[-_,: ]+)(\d{1,2})(?:[-_,: ]+(\d{1,2}))?/);
+ if(!m)return "";
+ return [m[1],m[2],m[3]].filter(Boolean).map(Number).join("-");
+}
+function comboFromObject(o){
+ const candidates=[
+  ["umaban","horse_number","horseNo","num","number","wakuban"],
+  ["umaban1","horse_number1","horseNo1","num1","number1","n1"],
+  ["umaban2","horse_number2","horseNo2","num2","number2","n2"],
+  ["umaban3","horse_number3","horseNo3","num3","number3","n3"]
+ ];
+ const vals=[];
+ for(let i=1;i<candidates.length;i++){
+  for(const k of candidates[i]){
+   if(o[k]!=null&&/^\d+$/.test(String(o[k]))){vals.push(+o[k]);break}
+  }
+ }
+ if(vals.length)return vals.join("-");
+ for(const k of candidates[0]){
+  if(o[k]!=null&&/^\d+$/.test(String(o[k])))return String(+o[k]);
+ }
+ return "";
+}
+function extractOddsFromText(text,betType,out){
+ const re=/(\d{1,2})(?:[-_,: ]+)(\d{1,2})?(?:[-_,: ]+)?(\d{1,2})?[^0-9.]{0,20}(\d+\.\d+)/g;
+ let m;
+ while((m=re.exec(text))){
+  const ns=[m[1],m[2],m[3]].filter(Boolean).map(Number);
+  if(!ns.length)continue;
+  const need=(betType==="win"||betType==="place")?1:(betType==="sanrenpuku"||betType==="sanrentan"?3:2);
+  if(ns.length>=need)out.push({type:betType,combo:ns.slice(0,need).join("-"),odds:+m[4]});
+ }
+}
+
+function startLiveOdds(){
+ if(liveTimer)return;
+ fetchLiveOddsOnce();
+ liveTimer=setInterval(fetchLiveOddsOnce,15000);
+ setStatus("autoState","取得中","on");
+}
+function stopLiveOdds(){
+ if(liveTimer){clearInterval(liveTimer);liveTimer=null}
+ setStatus("autoState","停止中","off");
+}
+
+function addSnapshot(source){
+ const val=document.getElementById("startTime").value;
+ let remain="--";
+ if(val){
+  const diff=Math.floor((new Date(val)-new Date())/1000/60);
+  remain=diff>=0?diff+"分前":"発走済";
+ }
+ const items=makeItems();
+ snapshots.push({no:snapshots.length+1,time:nowLabel(),remain,source:source||"手動",items});
+ renderSnapshots();
+ renderTimeline();
+ updateGraphTicketSelect();
+ drawGraph();
+}
+
+function clearSnapshots(){
+ if(!confirm("時系列データを削除しますか？"))return;
+ stopLiveOdds();
+ snapshots=[];
+ renderSnapshots();
+ renderTimeline();
+ updateGraphTicketSelect();
+ drawGraph();
+}
+
+function renderSnapshots(){
+ document.getElementById("snapshotCount").textContent=snapshots.length;
+ const tb=document.getElementById("snapshotTable");
+ tb.innerHTML="";
+ let globalMax=null;
+ snapshots.forEach(s=>{
+  const max=[...s.items].sort((a,b)=>b.ev-a.ev)[0];
+  if(max&&(!globalMax||max.ev>globalMax.ev))globalMax=max;
+  tb.innerHTML+=`<tr>
+   <td>${s.no}</td><td>${s.time}</td><td>${s.remain}</td><td>${s.items.length}</td>
+   <td class="${max&&max.ev>=1.5?"ev-high":"ev-mid"}">${max?max.ev.toFixed(2):"--"}</td>
+   <td>${max?label(max.type)+" "+max.combo:"--"}</td><td>${s.source}</td>
+  </tr>`;
+ });
+ document.getElementById("maxEv").textContent=globalMax?globalMax.ev.toFixed(2):"--";
+}
+
+function allKeys(){
+ const m=new Map();
+ snapshots.forEach(s=>s.items.forEach(i=>{
+  if(!m.has(i.key))m.set(i.key,{key:i.key,type:i.type,combo:i.combo});
+ }));
+ return [...m.values()];
+}
+function renderTimeline(){
+ const h=document.getElementById("timelineHead"),b=document.getElementById("timelineBody");
+ if(!snapshots.length){h.innerHTML="";b.innerHTML="";return}
+ h.innerHTML=`<tr><th>券種</th><th>組み合わせ</th><th>的中率</th><th>金額判定</th>${snapshots.map(s=>`<th>${s.no}<br>${s.time}<br>${s.remain}</th>`).join("")}<th>EV推移</th><th>判定</th></tr>`;
+ b.innerHTML="";
+ allKeys().forEach(k=>{
+  const values=snapshots.map(s=>s.items.find(i=>i.key===k.key));
+  const latest=[...values].reverse().find(Boolean);
+  const first=values.find(Boolean);
+  const firstEv=first?first.ev:0,lastEv=latest?latest.ev:0,diff=lastEv-firstEv;
+  const judge=latest&&latest.stake>0?(lastEv>=1.5?"買い目上位候補":"買い候補"):(lastEv<1?"見送り":"様子見");
+  b.innerHTML+=`<tr>
+   <td>${label(k.type)}</td><td>${k.combo}</td>
+   <td>${latest?(latest.probability*100).toFixed(2):"--"}%</td>
+   <td>${latest&&latest.stake>0?`<span class="stake">${latest.stake.toLocaleString()}円</span>`:"対象外"}</td>
+   ${values.map(v=>v?`<td>オッズ ${v.odds.toFixed(1)}<br>EV <span class="${v.ev>=1.5?"ev-high":v.ev>=1.15?"ev-mid":""}">${v.ev.toFixed(2)}</span><br>${v.stake>0?`<span class="stake">${v.stake}円</span>`:"-"}</td>`:"<td>--</td>").join("")}
+   <td>${firstEv.toFixed(2)} → ${lastEv.toFixed(2)}<br>${diff>=0?"+":""}${diff.toFixed(2)}</td>
+   <td>${judge}</td>
+  </tr>`;
+ });
+}
+
+function rankedBetCandidates(snapshot){
+ if(!snapshot)return[];
+ return [...snapshot.items]
+  .map(i=>({...i,stake:stakeByEV(i.ev,i.probability)}))
+  .filter(i=>i.stake>0)
+  .sort((a,b)=>b.stake!==a.stake?b.stake-a.stake:b.ev-a.ev);
+}
+function updateGraphTicketSelect(){
+ const sel=document.getElementById("graphTicketSelect"),cur=sel.value;
+ sel.innerHTML="";
+ allKeys().forEach(k=>{
+  const o=document.createElement("option");
+  o.value=k.key;
+  o.textContent=`${label(k.type)} ${k.combo}`;
+  sel.appendChild(o);
+ });
+ if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur;
+}
+function drawGraph(){
+ const c=document.getElementById("graph"),ctx=c.getContext("2d");
+ ctx.clearRect(0,0,c.width,c.height);
+ ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+ ctx.strokeStyle="#ddd";
+ for(let i=0;i<=5;i++){const y=40+i*65;ctx.beginPath();ctx.moveTo(60,y);ctx.lineTo(c.width-30,y);ctx.stroke()}
+ if(!snapshots.length)return;
+
+ const mode=document.getElementById("graphMode").value;
+ const metric=document.getElementById("graphMetric").value;
+ const selected=document.getElementById("graphTicketSelect").value;
+ let targets=[];
+ if(mode==="single"){
+  const f=allKeys().find(k=>k.key===selected);
+  if(f)targets=[f];
+ }else{
+  const latest=snapshots[snapshots.length-1];
+  const ranked=rankedBetCandidates(latest);
+  const limit=mode==="top5"?5:mode==="top10"?10:20;
+  targets=ranked.slice(0,limit);
+ }
+ if(!targets.length)return;
+
+ const series=targets.map(k=>{
+  const points=snapshots.map((s,idx)=>{
+   const it=s.items.find(i=>i.key===k.key);
+   if(!it)return null;
+   let v=metric==="ev"?it.ev:metric==="odds"?it.odds:it.probability*100;
+   return{idx,time:s.time,value:v};
+  }).filter(Boolean);
+  return{label:`${label(k.type)} ${k.combo}`,points};
+ }).filter(s=>s.points.length);
+
+ const vals=series.flatMap(s=>s.points.map(p=>p.value));
+ const max=Math.max(...vals)*1.15||1,min=0;
+ const left=60,right=c.width-40,top=35,bottom=c.height-76;
+ const maxN=Math.max(...series.map(s=>s.points.length));
+ const x=i=>maxN===1?left:left+(right-left)*(i/(maxN-1));
+ const y=v=>bottom-(bottom-top)*((v-min)/(max-min));
+ const colors=["#c40000","#1565c0","#006837","#ef6c00","#7b1fa2","#795548","#00897b","#d81b60","#3949ab","#2e7d32","#f57c00","#8e24aa","#0097a7","#ad1457","#6d4c41","#283593","#558b2f","#c2185b","#0277bd","#5d4037"];
+ const title=metric==="ev"?"EV推移":metric==="odds"?"オッズ推移":"想定的中率推移";
+ const modeLabel=mode==="single"?"個別":mode==="top5"?"買い目上位5点":mode==="top10"?"買い目上位10点":"買い目上位20点";
+ ctx.fillStyle="#222";ctx.font="14px sans-serif";ctx.fillText(`${title}：${modeLabel}`,60,24);
+
+ series.forEach((s,si)=>{
+  const color=colors[si%colors.length];
+  ctx.strokeStyle=color;ctx.lineWidth=mode==="single"?3:2;ctx.beginPath();
+  s.points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(i),y(p.value));else ctx.lineTo(x(i),y(p.value))});
+  ctx.stroke();
+  s.points.forEach((p,i)=>{
+   ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(i),y(p.value),mode==="single"?5:3,0,Math.PI*2);ctx.fill();
+   if(mode==="single"){ctx.fillStyle="#222";ctx.font="12px sans-serif";ctx.fillText(p.value.toFixed(2),x(i)-14,y(p.value)-10)}
+  });
+ });
+
+ const base=series[0];
+ if(base){ctx.fillStyle="#222";ctx.font="12px sans-serif";base.points.forEach((p,i)=>ctx.fillText(p.time,x(i)-28,bottom+24))}
+ ctx.fillStyle="#666";ctx.font="12px sans-serif";
+ for(let i=0;i<=5;i++){const v=max-(max-min)*(i/5);ctx.fillText(v.toFixed(2),10,40+i*65+4)}
+
+ let lx=70,ly=c.height-24;
+ series.forEach((s,si)=>{
+  const color=colors[si%colors.length];
+  ctx.fillStyle=color;ctx.fillRect(lx,ly-9,12,4);
+  ctx.fillStyle="#222";ctx.font="12px sans-serif";
+  ctx.fillText(s.label,lx+16,ly);
+  lx+=ctx.measureText(s.label).width+48;
+  if(lx>c.width-180){lx=70;ly-=18}
+ });
+}
+
+function buildTicketsFromSnapshot(s){
+ tickets=rankedBetCandidates(s).map(i=>({type:i.type,combo:i.combo,odds:i.odds,probability:i.probability,ev:i.ev,stake:i.stake}));
+ renderTickets();
+ createPaper();
+}
+function buildTicketsFromLatest(){
+ if(!snapshots.length){alert("スナップショットがありません");return}
+ buildTicketsFromSnapshot(snapshots[snapshots.length-1]);
+}
+function buildTicketsFromThreeMin(){
+ if(!snapshots.length){alert("スナップショットがありません");return}
+ let target=snapshots.find(s=>String(s.remain).includes("3分前"))||snapshots[snapshots.length-1];
+ buildTicketsFromSnapshot(target);
+}
+function runEngine(){
+ tickets=rankedBetCandidates({items:makeItems()});
+ renderTickets();
+ createPaper();
+}
+function renderTickets(){
+ const tb=document.getElementById("ticketTable");
+ tb.innerHTML="";
+ let total=0,ret=0;
+ tickets.forEach(t=>{
+  total+=t.stake;ret+=t.stake*t.ev;
+  tb.innerHTML+=`<tr><td>${label(t.type)}</td><td>${t.combo}</td><td>${(t.probability*100).toFixed(2)}%</td><td>${t.odds.toFixed(1)}</td><td class="${t.ev>=1.5?"ev-high":"ev-mid"}">${t.ev.toFixed(2)}</td><td class="stake">${t.stake.toLocaleString()}円</td></tr>`;
+ });
+ document.getElementById("totalStake").textContent=total.toLocaleString()+"円";
+}
+function currentRaceLabel(){
+ return (document.getElementById("raceNameInput").value||"選択レース")+" / "+(document.getElementById("raceIdInput").value||"race_id未設定");
+}
+function parsePayout(){
+ const raw=document.getElementById("payoutInput").value.trim();
+ if(!raw)return[];
+ return raw.split("\n").filter(Boolean).map(line=>{
+  const [type,combo,payout]=line.split(",").map(x=>x.trim());
+  return{type,combo,payout:+payout};
+ });
+}
+function isTicketHit(t,p){
+ if(t.type!==p.type)return false;
+ if(["wakuren","umaren","wide","sanrenpuku"].includes(t.type))return norm(t.combo)===norm(p.combo);
+ return t.combo===p.combo;
+}
+function registerResult(){
+ if(!tickets.length){alert("買い目がありません");return}
+ const order=document.getElementById("resultOrder").value.trim();
+ if(!order){alert("着順を入力してください");return}
+ const stake=tickets.reduce((s,t)=>s+t.stake,0);
+ let payout=0,hits=[];
+ parsePayout().forEach(p=>tickets.forEach(t=>{
+  if(isTicketHit(t,p)){payout+=p.payout;hits.push(`${label(t.type)} ${t.combo} ${p.payout.toLocaleString()}円`)}
+ }));
+ const profit=payout-stake,roi=stake?payout/stake*100:0;
+ results.push({race:currentRaceLabel(),order,stake,payout,profit,roi,hits:hits.join(" / ")||"なし"});
+ renderResults();
+}
+function autoPayoutFromOdds(){
+ if(!tickets.length){alert("買い目がありません");return}
+ const order=document.getElementById("resultOrder").value.trim();
+ if(!order){alert("着順を入力してください");return}
+ const top3=order.split("-").map(Number),top2=top3.slice(0,2),lines=[];
+ tickets.forEach(t=>{
+  const n=nums(t.combo);let hit=false;
+  if(t.type==="win")hit=n[0]===top3[0];
+  if(t.type==="place")hit=top3.includes(n[0]);
+  if(t.type==="umaren"||t.type==="wakuren")hit=n.length===2&&n.every(x=>top2.includes(x));
+  if(t.type==="wide")hit=n.length===2&&n.every(x=>top3.includes(x));
+  if(t.type==="umatan")hit=n.length===2&&n[0]===top3[0]&&n[1]===top3[1];
+  if(t.type==="sanrenpuku")hit=n.length===3&&n.every(x=>top3.includes(x));
+  if(hit)lines.push(`${t.type},${t.combo},${Math.round(t.stake*t.odds)}`);
+ });
+ document.getElementById("payoutInput").value=lines.join("\n");
+ if(!lines.length)alert("的中買い目はありませんでした");
+}
+function renderResults(){
+ const tb=document.getElementById("resultTable");
+ tb.innerHTML="";
+ results.forEach((r,i)=>{
+  tb.innerHTML+=`<tr><td>${i+1}</td><td>${escapeHtml(r.race)}</td><td>${r.order}</td><td>${r.stake.toLocaleString()}円</td><td>${r.payout.toLocaleString()}円</td><td class="${r.profit>=0?"plus":"minus"}">${r.profit>=0?"+":""}${r.profit.toLocaleString()}円</td><td>${r.roi.toFixed(1)}%</td><td>${escapeHtml(r.hits)}</td></tr>`;
+ });
+ const stake=results.reduce((s,r)=>s+r.stake,0),payout=results.reduce((s,r)=>s+r.payout,0);
+ document.getElementById("grandStake").textContent=stake.toLocaleString()+"円";
+ document.getElementById("grandPayout").textContent=payout.toLocaleString()+"円";
+ document.getElementById("grandRoi").textContent=stake?(payout/stake*100).toFixed(1)+"%":"--%";
+}
+function resetResults(){if(confirm("結果をリセットしますか？")){results=[];renderResults()}}
+function exportCSV(){
+ if(!results.length){alert("出力する結果がありません");return}
+ const rows=[["No","レース","着順","投資","払戻","収支","回収率","的中買い目"],...results.map((r,i)=>[i+1,r.race,r.order,r.stake,r.payout,r.profit,r.roi.toFixed(1)+"%",r.hits])];
+ const csv=rows.map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;a.download="x96_bridge_results.csv";a.click();URL.revokeObjectURL(url);
+}
+function createPaper(){
+ if(!horses.length)return;
+ const sorted=[...horses].sort((a,b)=>(winRates[b.no]||0)-(winRates[a.no]||0));
+ const top=sorted[0],sec=sorted[1],thi=sorted[2];
+ const txt=tickets.length?tickets.map(t=>`${label(t.type)} ${t.combo} EV${t.ev.toFixed(2)} ${t.stake}円`).join("<br>"):"まだ買い目はありません。";
+ document.getElementById("paperOutput").innerHTML=`<b>${escapeHtml(currentRaceLabel())}</b><br><br>
+ <b>印</b><br>
+ ◎ ${top?top.no+" "+escapeHtml(top.name)+" "+((winRates[top.no]||0)*100).toFixed(1)+"%":""}<br>
+ ○ ${sec?sec.no+" "+escapeHtml(sec.name)+" "+((winRates[sec.no]||0)*100).toFixed(1)+"%":""}<br>
+ ▲ ${thi?thi.no+" "+escapeHtml(thi.name)+" "+((winRates[thi.no]||0)*100).toFixed(1)+"%":""}<br><br>
+ <b>買い目</b><br>${txt}<br><br>
+ <b>結論</b><br>Bridge 1.7.19経由でオッズを取り込み、15秒ごとの変化を見て、実際に金額が付く買い目上位を確認します。`;
+}
+function escapeHtml(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+function escapeAttr(s){return String(s||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;")}
+window.onload=()=>{
+ document.getElementById("dateInput").value=todayLocal();
+ const d=new Date();d.setMinutes(d.getMinutes()+10);
+ document.getElementById("startTime").value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+ calculateWinRates();
+ checkBridge();
+ applyRace();
+};
+</script>
+</body>
+</html>
