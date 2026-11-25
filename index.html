@@ -3,45 +3,54 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>X96風 フルオート仮想購入＋競馬新聞 完全統合版</title>
+<title>X96風 フルオート仮想購入＋本格競馬新聞 完全統合版</title>
 <style>
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f4f0e6;color:#222}
-header{background:linear-gradient(135deg,#111,#444);color:white;text-align:center;padding:18px}
-header h1{margin:0;font-size:24px}header p{margin:8px 0 0;color:#ddd}
-.container{max-width:1360px;margin:22px auto;padding:0 14px}
+header{background:linear-gradient(135deg,#111,#444);color:#fff;text-align:center;padding:18px}
+header h1{margin:0;font-size:24px}
+header p{margin:8px 0 0;color:#ddd}
+.container{max-width:1380px;margin:22px auto;padding:0 14px}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.box,.card{background:white;border-radius:16px;box-shadow:0 4px 14px #0002}
-.box{padding:14px;text-align:center}.box strong{display:block;font-size:21px;margin-top:4px}
-.card{padding:18px;margin-bottom:18px}.card h2{margin:0 0 14px;border-left:6px solid #b8860b;padding-left:10px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.full{grid-column:1/-1}
+.box,.card{background:#fff;border-radius:16px;box-shadow:0 4px 14px #0002}
+.box{padding:14px;text-align:center}
+.box strong{display:block;font-size:21px;margin-top:4px}
+.card{padding:18px;margin-bottom:18px}
+.card h2{margin:0 0 14px;border-left:6px solid #b8860b;padding-left:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.full{grid-column:1/-1}
 label{display:block;font-weight:700;margin:10px 0 4px}
 input,select,textarea{width:100%;box-sizing:border-box;padding:9px;border:1px solid #bbb;border-radius:8px;font-size:14px}
 textarea{min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospace}
-button{border:0;background:#111;color:white;padding:10px 15px;border-radius:999px;cursor:pointer;font-weight:700;margin:8px 6px 0 0}
+button{border:0;background:#111;color:#fff;padding:10px 15px;border-radius:999px;cursor:pointer;font-weight:700;margin:8px 6px 0 0}
 button:disabled{opacity:.45;cursor:not-allowed}
 .blue{background:#174ea6}.green{background:#006837}.danger{background:#9b1c1c}.gold{background:#b8860b}.gray{background:#555}
 table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
 th,td{padding:8px;border-bottom:1px solid #ddd;text-align:center;vertical-align:top}
-th{background:#222;color:white}
-.note{background:#fff3cd;border:1px solid #e6c76e;padding:12px;border-radius:10px;line-height:1.6;margin-top:12px}
+th{background:#222;color:#fff}
+.note{background:#fff3cd;border:1px solid #e6c76e;padding:12px;border-radius:10px;line-height:1.65;margin-top:12px}
 .ok{background:#e8f7ed;border-color:#8ad09c}.warn{background:#ffe7e7;border-color:#d88}
 .on,.plus,.stake{color:#006837;font-weight:900}.off,.minus,.status{color:#c40000;font-weight:900}
 .ev-high{color:#c40000;font-weight:900}.ev-mid{color:#b8860b;font-weight:900}
-.badge{display:inline-block;color:white;border-radius:999px;padding:4px 10px;font-size:12px}.nar{background:#006837}.jra{background:#174ea6}
-canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-radius:12px;margin-top:12px}
-.graphPanel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.scroll{overflow:auto;max-height:560px}
-.paper{background:#fffaf0;border:1px solid #d8bc78;border-radius:12px;padding:14px;line-height:1.75}
-.paper h3{border-bottom:2px solid #b8860b;padding-bottom:4px;margin-top:18px}
+.badge{display:inline-block;color:#fff;border-radius:999px;padding:4px 10px;font-size:12px}.nar{background:#006837}.jra{background:#174ea6}
+canvas{width:100%;height:390px;background:#fff;border:1px solid #ccc;border-radius:12px;margin-top:12px}
+.graphPanel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.scroll{overflow:auto;max-height:560px}
+.paper{background:#fffaf0;border:1px solid #d8bc78;border-radius:12px;padding:16px;line-height:1.85;font-size:15px}
+.paper h3{border-bottom:2px solid #b8860b;padding-bottom:4px;margin-top:22px}
+.paper h4{margin-bottom:6px;color:#5a3d00}
 .mark{font-size:20px;font-weight:900;color:#9b1c1c}
-.articleLead{font-size:16px;font-weight:700}
+.articleLead{font-size:17px;font-weight:800}
+.bigArticle{font-size:15px;line-height:1.9}
+.pillarTable th{background:#3a2a0a}
+.saveStatus{font-weight:900;color:#006837}
 @media(max-width:900px){.summary,.grid,.graphPanel{grid-template-columns:1fr}}
 </style>
 </head>
 
 <body>
 <header>
-<h1>X96風 フルオート仮想購入＋競馬新聞 完全統合版</h1>
-<p>全レース仮想巡回 / 15秒オッズ / 3分前仮想購入 / 自動精算 / 集計 / 復帰リカバリー / 競馬新聞 / 馬柱 / 展望・回顧記事 / 実購入なし</p>
+<h1>X96風 フルオート仮想購入＋本格競馬新聞 完全統合版</h1>
+<p>全レース仮想巡回 / 15秒オッズ / 3分前仮想購入 / 本格馬柱 / 長文記事 / 過去レース確定オッズ風シミュレーション / 自動保存・自動復元</p>
 </header>
 
 <main class="container">
@@ -57,7 +66,7 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 <div class="box">フルオート<strong id="autoStatus" class="off">停止中</strong></div>
 <div class="box">仮想購入<strong id="simStatus" class="off">未確定</strong></div>
 <div class="box">Bridge<strong id="bridgeStatus" class="off">未確認</strong></div>
-<div class="box">裏落ち検知<strong id="sleepStatus">--</strong></div>
+<div class="box">保存状態<strong id="saveStatus" class="saveStatus">未保存</strong></div>
 </section>
 
 <section class="summary">
@@ -75,7 +84,7 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 <div class="graphPanel">
 <div>
 <label>グラフ表示</label>
-<select id="graphMode" onchange="drawGraph()">
+<select id="graphMode" onchange="drawGraph();saveAppData();">
 <option value="top5">買い目上位5点</option>
 <option value="top10">買い目上位10点</option>
 <option value="top20">買い目上位20点</option>
@@ -84,11 +93,11 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 </div>
 <div>
 <label>個別買い目</label>
-<select id="graphTicket" onchange="drawGraph()"></select>
+<select id="graphTicket" onchange="drawGraph();saveAppData();"></select>
 </div>
 <div>
 <label>指標</label>
-<select id="graphMetric" onchange="drawGraph()">
+<select id="graphMetric" onchange="drawGraph();saveAppData();">
 <option value="ev">EV</option>
 <option value="odds">オッズ</option>
 <option value="prob">想定的中率</option>
@@ -101,7 +110,7 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 <div class="card full">
 <h2>フルオート運転パネル</h2>
 <div class="note warn">
-<b>重要：</b>これはゲーム感覚の仮想購入です。実際の投票サイトへのログイン、自動購入、自動クリックは行いません。iPad/Safariでは裏に回るとタイマーが止まることがあります。復帰時に停止時間を検知してリカバリーします。
+<b>重要：</b>これはゲーム感覚の仮想購入です。実際の投票サイトへのログイン、自動購入、自動クリックは行いません。ブラウザが裏に回るとタイマーが止まる場合があります。復帰時は「復帰リカバリー」で再開します。
 </div>
 
 <button class="green" onclick="startFullAuto()">フルオート開始</button>
@@ -113,7 +122,7 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 <div class="grid">
 <div>
 <label>運転モード</label>
-<select id="autoMode">
+<select id="autoMode" onchange="saveAppData()">
 <option value="today">本日全レース</option>
 <option value="venue">選択場のみ</option>
 <option value="next5">直近5レース</option>
@@ -121,7 +130,7 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 </div>
 <div>
 <label>締切何分前で固定</label>
-<select id="lockMinutes">
+<select id="lockMinutes" onchange="saveAppData()">
 <option value="3">3分前</option>
 <option value="2">2分前</option>
 <option value="5">5分前</option>
@@ -132,7 +141,8 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 <div class="note">
 現在状態：<strong id="autoMessage">停止中</strong><br>
 最終動作：<strong id="lastTick">--</strong><br>
-次回処理：<strong id="nextAction">--</strong>
+次回処理：<strong id="nextAction">--</strong><br>
+裏落ち検知：<strong id="sleepStatus">--</strong>
 </div>
 </div>
 
@@ -156,30 +166,30 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 
 <div class="card">
 <h2>日程・開催場・レース</h2>
-<label>日付</label><input id="raceDate" type="date">
+<label>日付</label><input id="raceDate" type="date" onchange="saveAppData()">
 <label>主催</label>
-<select id="org">
+<select id="org" onchange="saveAppData()">
 <option value="NAR">地方/NAR</option>
 <option value="JRA">中央/JRA</option>
 </select>
-<label>開催場</label><select id="venueSelect" onchange="renderRaceSelect()"></select>
-<label>レース</label><select id="raceSelect" onchange="selectRaceByDropdown()"></select>
+<label>開催場</label><select id="venueSelect" onchange="renderRaceSelect();saveAppData();"></select>
+<label>レース</label><select id="raceSelect" onchange="selectRaceByDropdown();saveAppData();"></select>
 <label>発走時刻</label><input id="startTime" type="datetime-local" readonly>
-<label>1レース上限</label><input id="maxStake" type="number" value="6000">
+<label>1レース上限</label><input id="maxStake" type="number" value="6000" onchange="saveAppData()">
 <label>購入単位</label>
-<select id="unit"><option value="100">100円</option><option value="200">200円</option><option value="500">500円</option><option value="1000">1000円</option></select>
+<select id="unit" onchange="saveAppData()"><option value="100">100円</option><option value="200">200円</option><option value="500">500円</option><option value="1000">1000円</option></select>
 <div id="raceInfo" class="note">レース一覧を取得してください。</div>
 </div>
 
 <div class="card">
-<h2>出走馬・スコア・馬柱メモ</h2>
-<p class="small">形式：馬番,馬名,スコア,脚質,短評</p>
-<textarea id="horseInput">4,コンフィグシス,105,先行,指数上位で軸候補
-11,エコロガルダ,86,差し,展開ひとつ
-10,レッドジルベスター,85,先行,相手筆頭
-7,アンスリウムリリー,74,差し,穴なら一考
-9,ショウナンライラ,72,追込,ハマれば怖い
-5,ジーティーフクフク,70,先行,押さえ</textarea>
+<h2>出走馬・スコア・本格馬柱メモ</h2>
+<p class="small">形式：馬番,馬名,スコア,脚質,短評,距離適性,馬場適性,過去走メモ</p>
+<textarea id="horseInput" onchange="saveAppData()">4,コンフィグシス,105,先行,指数上位で軸候補,短距離向き,良〜稍重,前走は番手からしぶとく粘る
+11,エコロガルダ,86,差し,展開ひとつ,距離延長歓迎,時計かかる馬場向き,直線の伸びは目立つ
+10,レッドジルベスター,85,先行,相手筆頭,距離守備範囲,良馬場向き,前々で運べる強み
+7,アンスリウムリリー,74,差し,穴なら一考,距離延長可,渋れば浮上,前走不利あり
+9,ショウナンライラ,72,追込,ハマれば怖い,末脚勝負,差し馬場歓迎,展開待ち
+5,ジーティーフクフク,70,先行,押さえ,短距離可,軽い馬場向き,先行力はある</textarea>
 <button class="blue" onclick="calcWinRates()">想定勝率を計算</button>
 </div>
 
@@ -187,7 +197,7 @@ canvas{width:100%;height:390px;background:white;border:1px solid #ccc;border-rad
 <h2>Bridge レース一覧・race_id</h2>
 <button class="blue" onclick="fetchRaceList()">Bridgeでレース一覧取得</button>
 <button class="gray" onclick="showRaw()">raw確認</button>
-<label>race_id</label><input id="raceId" placeholder="自動入力。手入力も可">
+<label>race_id</label><input id="raceId" placeholder="自動入力。手入力も可" onchange="saveAppData()">
 <div class="note">
 Bridge状態：<strong id="bridgeDetail">未確認</strong><br>
 取得件数：<strong id="raceListCount">0件</strong>
@@ -198,7 +208,7 @@ Bridge状態：<strong id="bridgeDetail">未確認</strong><br>
 <div class="card full">
 <h2>現在オッズ入力・Bridgeライブ取得</h2>
 <p class="small">形式：券種,組み合わせ,オッズ</p>
-<textarea id="oddsInput">win,4,2.1
+<textarea id="oddsInput" onchange="saveAppData()">win,4,2.1
 place,4,1.3
 wide,4-7,21.8
 wide,4-11,3.2
@@ -214,15 +224,53 @@ sanrenpuku,4-7-9,88.0</textarea>
 </div>
 
 <div class="card full">
-<h2>競馬新聞・馬柱・記事生成</h2>
+<h2>過去レース・確定オッズ風シミュレーション</h2>
 <div class="note ok">
-出走馬スコア、脚質、短評、想定勝率、時系列EV、仮想買い目から、競馬新聞風の記事を自動生成します。<br>
-展望・本命記事・対抗記事・穴馬記事・買い方指南・レース回顧まで作ります。
+過去レースを選び、確定オッズ欄を使ってバックテスト風に仮想購入します。Bridgeで過去オッズが取れない場合でも、手入力した確定オッズで検証できます。
+</div>
+<div class="grid">
+<div>
+<label>過去レース日付</label>
+<input id="pastDate" type="date" onchange="saveAppData()">
+</div>
+<div>
+<label>過去race_id</label>
+<input id="pastRaceId" placeholder="例：202642112501" onchange="saveAppData()">
+</div>
+</div>
+<label>確定オッズ入力</label>
+<textarea id="pastOddsInput" onchange="saveAppData()">win,4,2.1
+place,4,1.3
+wide,4-7,21.8
+umaren,4-7,45.1
+sanrenpuku,4-7-9,88.0</textarea>
+<label>過去レース着順</label>
+<input id="pastResultOrder" placeholder="例：4-7-9" onchange="saveAppData()">
+<button class="blue" onclick="runPastSimulation()">過去レースを確定オッズで仮想検証</button>
+<div id="pastSimOutput" class="note">まだ過去シミュレーションはありません。</div>
+</div>
+
+<div class="card full">
+<h2>競馬新聞・馬柱・長文記事生成</h2>
+<div class="note ok">
+出走馬スコア、脚質、短評、距離適性、馬場適性、過去走メモ、想定勝率、時系列EV、仮想買い目から、本格的な競馬新聞風の記事を自動生成します。
 </div>
 <button class="blue" onclick="generateNewspaper()">競馬新聞を生成</button>
-<button class="green" onclick="generateAllArticles()">展望・本命・穴・買い方を全部生成</button>
+<button class="green" onclick="generateAllArticles()">長文記事を全部生成</button>
 <button class="gold" onclick="generateReviewArticle()">レース回顧記事を生成</button>
 <div id="newspaper" class="paper">まだ新聞記事はありません。</div>
+</div>
+
+<div class="card full">
+<h2>データ保存・アップデート継続</h2>
+<div class="note ok">
+同じ保存キーを使う限り、HTMLをアップデートしてもデータを自動復元します。Cookieより容量のあるlocalStorageを本体保存に使い、JSONバックアップも可能です。
+</div>
+<button class="blue" onclick="saveAppData()">今すぐ保存</button>
+<button class="green" onclick="loadAppData()">保存データを復元</button>
+<button class="gold" onclick="exportBackupJSON()">JSONバックアップ出力</button>
+<input type="file" id="backupFile" accept="application/json" onchange="importBackupJSON(event)">
+<button class="danger" onclick="clearAppData()">保存データ削除</button>
 </div>
 
 <div class="card full">
@@ -253,9 +301,9 @@ sanrenpuku,4-7-9,88.0</textarea>
 
 <div class="card full">
 <h2>結果入力・自動精算シミュレーション</h2>
-<label>着順</label><input id="resultOrder" placeholder="例：4-7-9">
+<label>着順</label><input id="resultOrder" placeholder="例：4-7-9" onchange="saveAppData()">
 <label>払戻入力</label>
-<textarea id="payoutInput">wide,4-7,10900
+<textarea id="payoutInput" onchange="saveAppData()">wide,4-7,10900
 umaren,4-7,4510
 sanrenpuku,4-7-9,8800</textarea>
 <button class="blue" onclick="settleCurrentRace()">現在レースを精算</button>
@@ -276,9 +324,13 @@ sanrenpuku,4-7-9,8800</textarea>
 </main>
 
 <script>
+const STORAGE_KEY="x96_full_auto_newspaper_complete_v1";
+const STORAGE_VERSION=1;
+
 let races=[],venues=[],currentRace=null,autoTimer=null,oddsTimer=null,countdownTimer=null;
-let horses=[],winRates={},tickets=[],lockedTickets=[],snapshots=[],results=[],logs=[];
+let horses=[],winRates={},tickets=[],lockedTickets=[],snapshots=[],results=[],logs=[],pastSims=[];
 let simLocked=false,lastActive=Date.now(),lastRaw="",lastRawUrl="";
+
 const marks=["◎","○","▲","☆","△","△","△"];
 const BET={win:"単勝",place:"複勝",wide:"ワイド",umaren:"馬連",umatan:"馬単",sanrenpuku:"3連複",sanrentan:"3連単",wakuren:"枠連"};
 const JRA_VENUE={"01":"札幌","02":"函館","03":"福島","04":"新潟","05":"東京","06":"中山","07":"中京","08":"京都","09":"阪神","10":"小倉"};
@@ -289,10 +341,12 @@ const NAR_TYPES={b1:"winplace",b3:"wakuren",b4:"umaren",b5:"wide",b6:"umatan",b7
 function init(){
  const d=new Date();
  const today=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
- document.getElementById("raceDate").value=today;
- calcWinRates();
+ setValue("raceDate",today);
+ setValue("pastDate",today);
+ calcWinRates(false);
  renderGraphEmpty();
  detectBridge();
+ loadAppData();
  heartbeat();
  setInterval(heartbeat,10000);
 }
@@ -305,6 +359,165 @@ function nums(c){return String(c).split("-").map(Number).filter(n=>!isNaN(n))}
 function norm(c){return nums(c).sort((a,b)=>a-b).join("-")}
 function label(t){return BET[t]||t}
 function oddsKey(t,c){return["wide","umaren","sanrenpuku","wakuren"].includes(t)?t+":"+norm(c):t+":"+c}
+function setValue(id,v){const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v}
+
+function updateSaveStatus(text){
+ const el=document.getElementById("saveStatus");
+ if(el)el.textContent=text;
+}
+
+function collectAppData(){
+ return{
+  version:STORAGE_VERSION,
+  savedAt:new Date().toISOString(),
+  races,venues,currentRace,horses,winRates,tickets,lockedTickets,snapshots,results,logs,pastSims,simLocked,
+  raceDate:document.getElementById("raceDate")?.value||"",
+  org:document.getElementById("org")?.value||"NAR",
+  venueSelect:document.getElementById("venueSelect")?.value||"",
+  raceSelect:document.getElementById("raceSelect")?.value||"",
+  raceId:document.getElementById("raceId")?.value||"",
+  startTime:document.getElementById("startTime")?.value||"",
+  horseInput:document.getElementById("horseInput")?.value||"",
+  oddsInput:document.getElementById("oddsInput")?.value||"",
+  payoutInput:document.getElementById("payoutInput")?.value||"",
+  resultOrder:document.getElementById("resultOrder")?.value||"",
+  maxStake:document.getElementById("maxStake")?.value||"6000",
+  unit:document.getElementById("unit")?.value||"100",
+  autoMode:document.getElementById("autoMode")?.value||"today",
+  lockMinutes:document.getElementById("lockMinutes")?.value||"3",
+  graphMode:document.getElementById("graphMode")?.value||"top5",
+  graphMetric:document.getElementById("graphMetric")?.value||"ev",
+  pastDate:document.getElementById("pastDate")?.value||"",
+  pastRaceId:document.getElementById("pastRaceId")?.value||"",
+  pastOddsInput:document.getElementById("pastOddsInput")?.value||"",
+  pastResultOrder:document.getElementById("pastResultOrder")?.value||""
+ };
+}
+
+function migrateAppData(data){
+ if(!data.version)data.version=0;
+ if(data.version===0)data.version=1;
+ return data;
+}
+
+function applyAppData(data){
+ if(!data)return false;
+ data=migrateAppData(data);
+
+ races=data.races||[];
+ venues=data.venues||[...new Set((races||[]).map(r=>r.venue))];
+ currentRace=data.currentRace||null;
+ horses=data.horses||[];
+ winRates=data.winRates||{};
+ tickets=data.tickets||[];
+ lockedTickets=data.lockedTickets||[];
+ snapshots=data.snapshots||[];
+ results=data.results||[];
+ logs=data.logs||[];
+ pastSims=data.pastSims||[];
+ simLocked=!!data.simLocked;
+
+ setValue("raceDate",data.raceDate);
+ setValue("org",data.org||"NAR");
+ setValue("raceId",data.raceId);
+ setValue("startTime",data.startTime);
+ setValue("horseInput",data.horseInput);
+ setValue("oddsInput",data.oddsInput);
+ setValue("payoutInput",data.payoutInput);
+ setValue("resultOrder",data.resultOrder);
+ setValue("maxStake",data.maxStake||"6000");
+ setValue("unit",data.unit||"100");
+ setValue("autoMode",data.autoMode||"today");
+ setValue("lockMinutes",data.lockMinutes||"3");
+ setValue("graphMode",data.graphMode||"top5");
+ setValue("graphMetric",data.graphMetric||"ev");
+ setValue("pastDate",data.pastDate);
+ setValue("pastRaceId",data.pastRaceId);
+ setValue("pastOddsInput",data.pastOddsInput);
+ setValue("pastResultOrder",data.pastResultOrder);
+
+ renderVenueOptions();
+ if(data.venueSelect)setValue("venueSelect",data.venueSelect);
+ renderRaceSelect();
+ if(data.raceSelect)setValue("raceSelect",data.raceSelect);
+
+ renderRaceList();
+ renderTickets();
+ renderSnapshots();
+ renderTimeline();
+ updateGraphTickets();
+ drawGraph();
+ renderResults();
+ renderSim();
+ renderLogs();
+
+ if(currentRace){
+  document.getElementById("currentRace").textContent=currentRace.venue+currentRace.raceNo;
+  document.getElementById("startTime").value=currentRace.date+"T"+currentRace.time;
+  document.getElementById("raceInfo").innerHTML="<b>"+currentRace.org+" "+currentRace.venue+currentRace.raceNo+"</b><br>race_id："+currentRace.raceId+"<br>発走："+currentRace.time+"<br>競走："+esc(currentRace.name)+"<br>条件："+esc(currentRace.cond+" "+currentRace.heads);
+  startCountdown();
+ }
+
+ generateNewspaper();
+ updateSaveStatus("復元済み");
+ return true;
+}
+
+function saveAppData(){
+ try{
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(collectAppData()));
+  updateSaveStatus("保存済み");
+ }catch(e){
+  updateSaveStatus("保存失敗");
+ }
+}
+
+function loadAppData(){
+ const raw=localStorage.getItem(STORAGE_KEY);
+ if(!raw){updateSaveStatus("新規");return false}
+ try{
+  const data=JSON.parse(raw);
+  return applyAppData(data);
+ }catch(e){
+  updateSaveStatus("復元失敗");
+  return false;
+ }
+}
+
+function clearAppData(){
+ if(!confirm("保存データを削除しますか？"))return;
+ localStorage.removeItem(STORAGE_KEY);
+ updateSaveStatus("削除済み");
+}
+
+function exportBackupJSON(){
+ const data=collectAppData();
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;
+ a.download="x96_backup_"+new Date().toISOString().slice(0,10)+".json";
+ a.click();
+ URL.revokeObjectURL(url);
+ updateSaveStatus("JSON出力済み");
+}
+
+function importBackupJSON(event){
+ const file=event.target.files[0];
+ if(!file)return;
+ const reader=new FileReader();
+ reader.onload=e=>{
+  try{
+   const data=JSON.parse(e.target.result);
+   applyAppData(data);
+   saveAppData();
+   updateSaveStatus("JSON復元済み");
+  }catch(err){
+   updateSaveStatus("JSON読込失敗");
+  }
+ };
+ reader.readAsText(file);
+}
 
 function heartbeat(){
  const gap=Date.now()-lastActive;
@@ -394,6 +607,7 @@ async function fetchRaceList(){
  document.getElementById("raceListCount").textContent=races.length+"件";
  selectNearestRace();
  log("レース一覧取得",races.length+"件取得");
+ saveAppData();
 }
 
 function parseRaceList(html,org,date){
@@ -418,7 +632,9 @@ function parseRaceList(html,org,date){
 }
 
 function renderVenueOptions(){
- const s=document.getElementById("venueSelect");s.innerHTML="";
+ const s=document.getElementById("venueSelect");
+ if(!s)return;
+ s.innerHTML="";
  venues.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;s.appendChild(o)});
  renderRaceSelect();
 }
@@ -427,11 +643,12 @@ function renderRaceSelect(){
  const v=document.getElementById("venueSelect").value;
  const rs=document.getElementById("raceSelect");rs.innerHTML="";
  races.filter(r=>r.venue===v).forEach(r=>{const o=document.createElement("option");o.value=r.raceId;o.textContent=r.raceNo+" "+r.time+" "+r.name;rs.appendChild(o)});
- selectRaceByDropdown();
 }
 
 function renderRaceList(){
- document.getElementById("raceListBox").innerHTML='<table><thead><tr><th>主催</th><th>場</th><th>R</th><th>発走</th><th>競走名</th><th>条件</th><th>race_id</th><th>選択</th></tr></thead><tbody>'+
+ const box=document.getElementById("raceListBox");
+ if(!box)return;
+ box.innerHTML='<table><thead><tr><th>主催</th><th>場</th><th>R</th><th>発走</th><th>競走名</th><th>条件</th><th>race_id</th><th>選択</th></tr></thead><tbody>'+
  races.map(r=>'<tr><td><span class="badge '+(r.org==="JRA"?"jra":"nar")+'">'+r.org+'</span></td><td>'+r.venue+'</td><td>'+r.raceNo+'</td><td>'+r.time+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.cond+" "+r.heads)+'</td><td>'+r.raceId+'</td><td><button onclick="selectRace(\''+r.raceId+'\')">選択</button></td></tr>').join("")+
  '</tbody></table>';
 }
@@ -448,6 +665,7 @@ function selectRace(id){
  if(!currentRace)return;
  document.getElementById("raceId").value=currentRace.raceId;
  document.getElementById("venueSelect").value=currentRace.venue;
+ renderRaceSelect();
  const rs=document.getElementById("raceSelect");
  if([...rs.options].some(o=>o.value===id))rs.value=id;
  document.getElementById("startTime").value=currentRace.date+"T"+currentRace.time;
@@ -456,6 +674,7 @@ function selectRace(id){
  resetRaceState();
  startCountdown();
  generateNewspaper();
+ saveAppData();
 }
 
 function selectRaceByDropdown(){selectRace(document.getElementById("raceSelect").value)}
@@ -479,20 +698,17 @@ function startCountdown(){
 
 function lockMs(){return Number(document.getElementById("lockMinutes").value)*60000}
 function beforeLock(){if(!currentRace)return true;return new Date(currentRace.date+"T"+currentRace.time)-new Date()>lockMs()}
-
-function maybeAutoLock(diff){
- if(diff<=lockMs()&&!simLocked&&tickets.length)lockSim(true);
-}
+function maybeAutoLock(diff){if(diff<=lockMs()&&!simLocked&&tickets.length)lockSim(true)}
 
 function parseHorses(){
  horses=document.getElementById("horseInput").value.trim().split("\n").filter(Boolean).map(line=>{
   const p=line.split(",").map(x=>x.trim());
-  return{no:+p[0],name:p[1]||"",score:+p[2]||0,style:p[3]||"",memo:p[4]||""};
+  return{no:+p[0],name:p[1]||"",score:+p[2]||0,style:p[3]||"",memo:p[4]||"",distance:p[5]||"",track:p[6]||"",past:p[7]||""};
  });
  return horses;
 }
 
-function calcWinRates(){
+function calcWinRates(save=true){
  parseHorses();
  if(!horses.length)return;
  const max=Math.max(...horses.map(h=>h.score));
@@ -500,10 +716,18 @@ function calcWinRates(){
  const sum=ex.reduce((a,b)=>a+b,0);
  winRates={};horses.forEach((h,i)=>winRates[h.no]=ex[i]/sum);
  generateNewspaper();
+ if(save)saveAppData();
 }
 
 function parseOdds(){
  return document.getElementById("oddsInput").value.trim().split("\n").filter(Boolean).map(l=>{
+  const p=l.split(",").map(x=>x.trim());
+  return{type:p[0],combo:p[1],odds:+p[2]};
+ }).filter(o=>o.type&&o.combo&&isFinite(o.odds));
+}
+
+function parseOddsText(text){
+ return text.trim().split("\n").filter(Boolean).map(l=>{
   const p=l.split(",").map(x=>x.trim());
   return{type:p[0],combo:p[1],odds:+p[2]};
  }).filter(o=>o.type&&o.combo&&isFinite(o.odds));
@@ -533,9 +757,9 @@ function stakeByEV(ev,p){
  return u*unit;
 }
 
-function buildItems(){
- if(!horses.length)calcWinRates();
- return parseOdds().map(o=>{
+function buildItems(oddsList=parseOdds()){
+ if(!horses.length)calcWinRates(false);
+ return oddsList.map(o=>{
   const probability=hitProb(o.type,o.combo),ev=probability*o.odds,stake=stakeByEV(ev,probability);
   return{...o,key:oddsKey(o.type,o.combo),probability,ev,stake};
  });
@@ -548,6 +772,7 @@ function manualCalc(){
  applyMaxStake();
  renderTickets();
  generateNewspaper();
+ saveAppData();
 }
 
 function applyMaxStake(){
@@ -582,11 +807,13 @@ function lockSim(auto){
  renderSim(auto?"自動確定":"手動確定");
  log("仮想購入確定",(auto?"自動":"手動")+" / "+yen(lockedTickets.reduce((s,t)=>s+t.stake,0)));
  generateNewspaper();
+ saveAppData();
 }
 
 function unlockSim(){
  simLocked=false;lockedTickets=[];renderSim();log("仮想購入解除","再計算可能");
  generateNewspaper();
+ saveAppData();
 }
 
 function renderSim(mode){
@@ -596,7 +823,7 @@ function renderSim(mode){
  document.getElementById("lockedTicketBox").innerHTML="<b>"+(mode||"確定済")+"</b><br>"+lockedTickets.map(t=>label(t.type)+" "+t.combo+" EV"+t.ev.toFixed(2)+" "+yen(t.stake)).join("<br>");
 }
 
-function clearTickets(){if(simLocked){alert("確定済みです。解除してください。");return}tickets=[];renderTickets();generateNewspaper()}
+function clearTickets(){if(simLocked){alert("確定済みです。解除してください。");return}tickets=[];renderTickets();generateNewspaper();saveAppData()}
 
 function addSnapshot(src){
  const val=document.getElementById("startTime").value;
@@ -608,6 +835,7 @@ function addSnapshot(src){
  const items=buildItems();
  snapshots.push({no:snapshots.length+1,time:now(),remain,source:src,items});
  renderSnapshots();renderTimeline();updateGraphTickets();drawGraph();
+ saveAppData();
 }
 
 function renderSnapshots(){
@@ -709,6 +937,7 @@ async function fetchOddsOnce(){
  document.getElementById("oddsInput").value=uniqueOdds(all).map(o=>o.type+","+o.combo+","+o.odds).join("\n");
  addSnapshot("Bridge");
  if(beforeLock())manualCalc();
+ saveAppData();
 }
 
 function parseOddsLoose(text,type){
@@ -740,6 +969,7 @@ function startFullAuto(){
  log("フルオート開始","全レース仮想購入シミュレーション開始");
  if(autoTimer)clearInterval(autoTimer);
  autoTick();autoTimer=setInterval(autoTick,15000);
+ saveAppData();
 }
 
 function stopFullAuto(){
@@ -748,6 +978,7 @@ function stopFullAuto(){
  document.getElementById("autoStatus").textContent="停止中";document.getElementById("autoStatus").className="off";
  document.getElementById("autoMessage").textContent="停止中";
  log("フルオート停止","停止しました");
+ saveAppData();
 }
 
 function autoTick(){
@@ -770,10 +1001,15 @@ function recoverFromSleep(){
  log("復帰リカバリー","現在時刻から次レースを再選択し、監視を再開します");
  selectNearestRace();
  if(document.getElementById("autoStatus").textContent==="運転中")autoTick();
+ saveAppData();
 }
 
 function log(action,content){
  logs.push({time:now(),race:currentRace?currentRace.venue+currentRace.raceNo:"--",action,content});
+ renderLogs();
+}
+
+function renderLogs(){
  const tb=document.getElementById("autoLog");tb.innerHTML="";
  logs.forEach((l,i)=>tb.innerHTML+='<tr><td>'+(i+1)+'</td><td>'+l.time+'</td><td>'+l.race+'</td><td>'+l.action+'</td><td>'+esc(l.content)+'</td></tr>');
 }
@@ -781,7 +1017,7 @@ function log(action,content){
 function currentRaceLabel(){return currentRace?currentRace.org+" "+currentRace.venue+currentRace.raceNo+" "+currentRace.name:"未設定"}
 
 function generateNewspaper(){
- if(!horses.length)calcWinRates();
+ if(!horses.length)calcWinRates(false);
 
  const sorted=[...horses].sort((a,b)=>(winRates[b.no]||0)-(winRates[a.no]||0));
  if(!sorted.length){
@@ -799,25 +1035,26 @@ function generateNewspaper(){
   ? useTickets.map(t=>label(t.type)+" "+t.combo+"　EV"+t.ev.toFixed(2)+"　"+yen(t.stake)).join("<br>")
   : "まだ仮想買い目はありません。";
 
- const table=sorted.map((h,i)=>{
+ const pillarRows=sorted.map((h,i)=>{
   const p=((winRates[h.no]||0)*100).toFixed(1);
-  return '<tr><td class="mark">'+(marks[i]||"")+'</td><td>'+h.no+'</td><td>'+esc(h.name)+'</td><td>'+esc(h.style||"")+'</td><td>'+h.score+'</td><td>'+p+'%</td><td>'+esc(h.memo||"")+'</td></tr>';
+  const role=i===0?"軸候補":i<=2?"相手本線":h===hole?"穴候補":"押さえ";
+  return '<tr><td class="mark">'+(marks[i]||"")+'</td><td>'+h.no+'</td><td>'+esc(h.name)+'</td><td>'+esc(h.style||"")+'</td><td>'+h.score+'</td><td>'+p+'%</td><td>'+esc(h.distance||"")+'</td><td>'+esc(h.track||"")+'</td><td>'+esc(h.past||"")+'</td><td>'+role+'</td></tr>';
  }).join("");
 
  const raceName=currentRaceLabel();
 
  document.getElementById("newspaper").innerHTML=
-  '<h3>【X96競馬新聞】'+esc(raceName)+'</h3>'+
-  '<div class="note articleLead">結論から言うと、本命は <b>◎'+top.no+' '+esc(top.name)+'</b>。<br>穴で面白いのは <b>☆'+hole.no+' '+esc(hole.name)+'</b> です。</div>'+
-  '<div class="note">いやあ、このレース、数字だけ見ると <b>'+esc(top.name)+'</b> が中心なんですが、競馬というのはそう素直に収まらないところがあります。締切前のオッズでEVが残っている馬、ここに妙味があるんです。<br><br>本命党には <b>'+esc(top.name)+'</b>、穴党には <b>'+esc(hole.name)+'</b>。理屈半分、勘半分。ただし勘にも根拠はあります。</div>'+
-  '<h3>馬柱風一覧</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>脚質</th><th>スコア</th><th>想定勝率</th><th>短評</th></tr></thead><tbody>'+table+'</tbody></table>'+
+  '<h3>【一面展望】'+esc(raceName)+'</h3>'+
+  '<div class="note articleLead">結論から言うと、本命は <b>◎'+top.no+' '+esc(top.name)+'</b>。穴で面白いのは <b>☆'+hole.no+' '+esc(hole.name)+'</b> です。</div>'+
+  '<div class="note bigArticle">いやあ、このレース、数字だけを見ると <b>'+esc(top.name)+'</b> が中心なんですが、競馬というのはそう素直に収まらないところがあります。特にこのシミュレーターで見るべきは、馬の強さそのものよりも、締切前のオッズにどれだけ歪みが残っているかです。人気を集める馬は当然買われます。しかし買われすぎれば妙味は消えますし、逆に少し評価を落としている馬でも、想定勝率とオッズの釣り合いが取れていなければ、そこに馬券的な旨味が出てきます。<br><br>本命党には <b>'+esc(top.name)+'</b>、穴党には <b>'+esc(hole.name)+'</b>。この二頭の扱いが、このレースの紙面の中心です。理屈半分、勘半分。ただし勘にも根拠はあります。脚質、展開、スコア、馬場適性、そして何より締切直前のEV。これらを合わせて眺めると、ただの数字表では見えなかった馬の匂いが、ふっと立ち上がってくるわけです。</div>'+
+  '<h3>本格馬柱</h3><table class="pillarTable"><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>脚質</th><th>指数</th><th>想定勝率</th><th>距離</th><th>馬場</th><th>過去走メモ</th><th>判定</th></tr></thead><tbody>'+pillarRows+'</tbody></table>'+
   '<h3>印</h3><div class="note">◎ '+top.no+' '+esc(top.name)+'<br>○ '+second.no+' '+esc(second.name)+'<br>▲ '+third.no+' '+esc(third.name)+'<br>☆ '+hole.no+' '+esc(hole.name)+'<br>△ '+sorted.slice(3,7).map(h=>h.no+" "+esc(h.name)).join("、")+'</div>'+
-  '<h3>展開予想</h3><div class="note">まず前に行きたいのは、脚質欄で先行タイプに出ている馬たち。ここがすんなり収まれば前残り、少しでもやり合えば差し馬の出番です。<br><br><b>'+esc(top.name)+'</b> は指数上位で、普通に走れば中心。ただ、勝ち切るかどうかは別として、馬券として面白いのは <b>'+esc(hole.name)+'</b> のような人気の隙間にいる馬です。</div>'+
-  '<h3>本命記事</h3><div class="note ok"><b>◎'+top.no+' '+esc(top.name)+'</b><br>スコアは '+top.score+'、想定勝率は '+((winRates[top.no]||0)*100).toFixed(1)+'%。数字上はこの馬が中心です。脚質は <b>'+esc(top.style||"不明")+'</b>。道中で極端に揉まれなければ、馬券圏内の軸としては見やすい存在です。<br><br>問題は強いかどうかではなく、締切前のオッズでEVが残っているか。そこがこのシミュレーターの見どころです。</div>'+
-  '<h3>対抗・単穴記事</h3><div class="note"><b>○'+second.no+' '+esc(second.name)+'</b> は、能力的には本命に迫る存在。展開ひとつで逆転まであっても不思議ではありません。<br><br><b>▲'+third.no+' '+esc(third.name)+'</b> は、相手候補として押さえたい一頭。勝ち切るかは別として、馬券圏内なら十分に可能性があります。</div>'+
-  '<h3>穴馬記事</h3><div class="note"><b>☆'+hole.no+' '+esc(hole.name)+'</b><br>この馬、ちょっと匂います。スコアだけ見ると主役級ではありませんが、こういう馬が展開ひとつでひょいと来る。<br><br>特にワイドや三連複の相手としては面白い存在です。勝ち切るまではどうかでも、馬券圏内なら十分に妙味があります。</div>'+
+  '<h3>展開予想</h3><div class="note bigArticle">まず隊列を考えると、前に行きたい馬が何頭いるかが焦点になります。脚質欄で先行タイプに分類されている馬がすんなり位置を取れれば、ペースは落ち着き、前の馬がそのまま粘る形が見えてきます。逆に、先行勢が主張し合うようなら、道中で脚を使わされ、直線では差し・追込勢に出番が回ってくる。<br><br><b>'+esc(top.name)+'</b> は指数上位で、普通に走れば中心視できます。ただし、競馬は「普通に走れば」が案外難しい。包まれる、外を回される、ペースが合わない、馬場の内外で伸びが違う。そうした小さなズレが、馬券では大きな差になります。そこで気になるのが <b>'+esc(hole.name)+'</b>。この馬は勝ち切るまではともかく、展開がひとつ向けば馬券圏内にひょいと顔を出す可能性があります。</div>'+
+  '<h3>本命記事</h3><div class="note ok bigArticle"><b>◎'+top.no+' '+esc(top.name)+'</b><br>スコアは '+top.score+'、想定勝率は '+((winRates[top.no]||0)*100).toFixed(1)+'%。数字上はこの馬が中心です。脚質は <b>'+esc(top.style||"不明")+'</b>。道中で極端に揉まれなければ、馬券圏内の軸としては見やすい存在です。<br><br>ただし、ここで大事なのは「強いから買う」ではなく、「強さに対してオッズが残っているか」です。締切直前にEVが残っているなら軸として信頼できますが、過剰に買われて妙味が消えているなら、あえて相手評価に下げる手もあります。このあたりが、仮想購入シミュレーションの面白いところです。</div>'+
+  '<h3>対抗・単穴記事</h3><div class="note bigArticle"><b>○'+second.no+' '+esc(second.name)+'</b> は、能力的には本命に迫る存在です。脚質や展開の噛み合いひとつで逆転まであっても不思議ではありません。スコアだけでなく、馬場適性や距離適性も見ながら、EVが残るなら積極的に相手へ入れたい馬です。<br><br><b>▲'+third.no+' '+esc(third.name)+'</b> は、相手候補として押さえたい一頭。勝ち切るかは別として、馬券圏内なら十分に可能性があります。ワイドや三連複の相手としては、こういうタイプが案外いい仕事をします。</div>'+
+  '<h3>穴馬記事</h3><div class="note bigArticle"><b>☆'+hole.no+' '+esc(hole.name)+'</b><br>この馬、ちょっと匂います。スコアだけ見ると主役級ではありませんが、こういう馬が展開ひとつでひょいと来るのが競馬です。人気の盲点、条件替わり、前走の不利、馬場の変化、そういう小さな材料が重なったときに、穴馬は急に顔を出します。<br><br>特にワイドや三連複の相手としては面白い存在です。勝ち切るまではどうかでも、馬券圏内なら十分に妙味があります。こういう馬を完全に切ってしまうと、あとで「ああ、そこだったか」となる。競馬新聞としては、ここに☆を打っておきたいですね。</div>'+
   '<h3>仮想買い目</h3><div class="note">'+ticketText+'</div>'+
-  '<h3>買い方指南</h3><div class="note warn">本線は◎から。ただし、人気馬だけを信用しすぎると配当妙味が薄くなります。<br><br>仮想購入では、EVが残っている買い目を中心に、ワイド・馬連・三連複で拾う形が面白いです。あくまでシミュレーション。実馬券ではなく、馬券力を磨くための稽古です。</div>';
+  '<h3>買い方指南</h3><div class="note warn bigArticle">本線は◎から。ただし、人気馬だけを信用しすぎると配当妙味が薄くなります。仮想購入では、EVが残っている買い目を中心に、ワイド・馬連・三連複で拾う形が面白いです。<br><br>堅く行くなら、◎からワイドと馬連を少点数。少し攻めるなら、☆を絡めたワイド、あるいは三連複の相手に加える。さらにフルオート運用では、締切直前までオッズを見て、金額が付いた買い目だけを仮想購入として固定します。これは実購入ではなく、あくまで稽古。ですが、稽古を重ねると、どの買い目に妙味が残りやすいか、どの券種が自分のロジックに合うかが見えてきます。</div>';
 }
 
 function generateAllArticles(){generateNewspaper()}
@@ -842,6 +1079,7 @@ function settleCurrentRace(){
  renderResults();
  generateReviewArticle();
  log("精算",profit>=0?"プラス "+yen(profit):"マイナス "+yen(profit));
+ saveAppData();
 }
 
 function autoPayoutFromOdds(){
@@ -860,6 +1098,7 @@ function autoPayoutFromOdds(){
   if(hit)lines.push(t.type+","+t.combo+","+Math.round(t.stake*t.odds));
  });
  document.getElementById("payoutInput").value=lines.join("\n");
+ saveAppData();
 }
 
 function generateReviewArticle(){
@@ -875,9 +1114,10 @@ function generateReviewArticle(){
  document.getElementById("newspaper").innerHTML=
   '<h3>【レース回顧】'+esc(currentRaceLabel())+'</h3>'+
   '<div class="note ok">勝ったのは <b>'+(winner?winner.no+" "+esc(winner.name):top3[0])+'</b>。2着に <b>'+(second?second.no+" "+esc(second.name):top3[1])+'</b>、3着に <b>'+(third?third.no+" "+esc(third.name):top3[2])+'</b>。</div>'+
-  '<h3>レースの流れ</h3><div class="note">結果は <b>'+esc(order)+'</b>。いやあ、競馬というのは最後まで分かりません。指数通りに来た部分もあれば、展開のアヤが出た部分もあります。<br><br>仮想購入としては、締切前にどの買い目を固定できたかがポイントでした。</div>'+
+  '<h3>レースの流れ</h3><div class="note bigArticle">結果は <b>'+esc(order)+'</b>。いやあ、競馬というのは最後まで分かりません。指数通りに来た部分もあれば、展開のアヤが出た部分もあります。仮想購入としては、締切前にどの買い目を固定できたかがポイントでした。<br><br>今回のレースで見るべきは、単に当たったか外れたかだけではありません。想定勝率が妥当だったのか、EVが残っていた買い目は本当に価値があったのか、締切前のオッズ変動をどこまで拾えたのか。そこを振り返ることで、次のシミュレーションの精度が上がっていきます。</div>'+
   '<h3>的中状況</h3><div class="note '+(hitLines.length?"ok":"warn")+'">'+(hitLines.length?hitLines.join("<br>"):"的中買い目はありませんでした。こういう日もあります。大事なのは、次にEVの歪みを拾えるかです。")+'</div>'+
-  '<h3>回顧コメント</h3><div class="note">今回のシミュレーションは、買い目の良し悪しだけでなく、「締切前のオッズ変動をどう拾えたか」を見る材料になります。<br><br>当たったなら、なぜそのEVが残っていたのか。外れたなら、想定勝率が甘かったのか、展開読みがズレたのか。そこを振り返ると、次の仮想購入が少しずつ上手くなります。</div>';
+  '<h3>回顧コメント</h3><div class="note bigArticle">当たったなら、なぜそのEVが残っていたのか。外れたなら、想定勝率が甘かったのか、展開読みがズレたのか。あるいは、馬場や隊列の読み違いだったのか。シミュレーションで大事なのは、勝った負けたで終わらせないことです。<br><br>仮想馬券は痛みが少ないぶん、反省を深くできます。ここで得た癖、券種の向き不向き、穴馬の拾い方は、次のレースを見る目に必ずつながります。当たるかどうかは馬に聞いてみないとわからない。だからこそ、終わったあとに人間が考える余地があるんです。</div>';
+ saveAppData();
 }
 
 function renderResults(){
@@ -891,7 +1131,8 @@ function renderResults(){
  document.getElementById("totalRoi").textContent=stake?roi.toFixed(1)+"%":"--%";
 }
 
-function resetResults(){if(confirm("結果をリセットしますか？")){results=[];renderResults()}}
+function resetResults(){if(confirm("結果をリセットしますか？")){results=[];renderResults();saveAppData()}}
+
 function exportCSV(){
  if(!results.length){alert("出力する結果がありません");return}
  const rows=[["No","レース","着順","投資","払戻","収支","回収率","的中"],...results.map((r,i)=>[i+1,r.race,r.order,r.stake,r.payout,r.profit,r.roi.toFixed(1)+"%",r.hits])];
@@ -905,6 +1146,38 @@ function simulateAllResults(){
  document.getElementById("resultOrder").value="4-7-9";
  autoPayoutFromOdds();
  settleCurrentRace();
+}
+
+function runPastSimulation(){
+ const odds=parseOddsText(document.getElementById("pastOddsInput").value);
+ const order=document.getElementById("pastResultOrder").value.trim();
+ if(!odds.length){alert("確定オッズを入力してください");return}
+ if(!order){alert("過去レース着順を入力してください");return}
+ const items=buildItems(odds).filter(i=>i.stake>0).sort((a,b)=>b.stake!==a.stake?b.stake-a.stake:b.ev-a.ev);
+ const max=+document.getElementById("maxStake").value;
+ let total=items.reduce((s,t)=>s+t.stake,0);
+ if(total>max){
+  const ratio=max/total;
+  items.forEach(t=>t.stake=Math.max(100,Math.floor(t.stake*ratio/100)*100));
+ }
+ const top3=order.split("-").map(Number),top2=top3.slice(0,2);
+ let payout=0,hits=[];
+ items.forEach(t=>{
+  const n=nums(t.combo);let hit=false;
+  if(t.type==="win")hit=n[0]===top3[0];
+  if(t.type==="place")hit=top3.includes(n[0]);
+  if(t.type==="wide")hit=n.length===2&&n.every(x=>top3.includes(x));
+  if(t.type==="umaren")hit=n.length===2&&n.every(x=>top2.includes(x));
+  if(t.type==="umatan")hit=n.length===2&&n[0]===top3[0]&&n[1]===top3[1];
+  if(t.type==="sanrenpuku")hit=n.length===3&&n.every(x=>top3.includes(x));
+  if(hit){const pay=Math.round(t.stake*t.odds);payout+=pay;hits.push(label(t.type)+" "+t.combo+" "+yen(pay))}
+ });
+ const stake=items.reduce((s,t)=>s+t.stake,0),profit=payout-stake,roi=stake?payout/stake*100:0;
+ const rec={date:document.getElementById("pastDate").value,raceId:document.getElementById("pastRaceId").value,order,stake,payout,profit,roi,hits:hits.join(" / ")||"なし"};
+ pastSims.push(rec);
+ document.getElementById("pastSimOutput").innerHTML='<b>過去シミュレーション結果</b><br>投資：'+yen(stake)+'<br>払戻：'+yen(payout)+'<br>収支：<span class="'+(profit>=0?"plus":"minus")+'">'+(profit>=0?"+":"")+yen(profit)+'</span><br>回収率：'+roi.toFixed(1)+'%<br>的中：'+esc(rec.hits)+'<br><br><b>買い目</b><br>'+items.map(t=>label(t.type)+" "+t.combo+" EV"+t.ev.toFixed(2)+" "+yen(t.stake)).join("<br>");
+ log("過去検証","確定オッズ風シミュレーション "+(profit>=0?"+":"")+yen(profit));
+ saveAppData();
 }
 
 function showRaw(){alert(("URL: "+lastRawUrl+"\n\n"+lastRaw).slice(0,2000))}
