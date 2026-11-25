@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>X96風 締切3分前EV予想エンジン Bridge 1.7.19 完全統合版</title>
+<title>X96風 Bridge 1.7.19 レース選択ドロップダウン統合版</title>
 <style>
 body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f0e6;color:#222}
 header{background:linear-gradient(135deg,#111,#444);color:#fff;padding:18px 24px;text-align:center}
@@ -57,8 +57,8 @@ canvas{width:100%;height:390px;background:#fff;border:1px solid #ccc;border-radi
 
 <body>
 <header>
-<h1>X96風 締切3分前EV予想エンジン Bridge 1.7.19 完全統合版</h1>
-<p>JRA＋地方 / 日程表 / 開催順 / Bridge時系列オッズ / 買い目上位グラフ / 収支管理</p>
+<h1>X96風 Bridge 1.7.19 レース選択ドロップダウン統合版</h1>
+<p>JRA＋地方 / Bridgeレース一覧取得 / race_idドロップダウン / 15秒時系列オッズ / 買い目上位グラフ / 収支管理</p>
 </header>
 
 <main class="container">
@@ -129,7 +129,7 @@ canvas{width:100%;height:390px;background:#fff;border:1px solid #ccc;border-radi
 <div class="note warn">
 <b>運用メモ</b><br>
 Bridge時系列を使う場合は、Userscript v1.7.19を有効化し、yamase-takiyoshi.github.io 配下で開いてください。<br>
-race_idはnetkeiba系の12桁IDを入力します。
+今回版は、race_idを手入力せず、Bridgeでレース一覧を取得してドロップダウンから選べます。
 </div>
 </div>
 
@@ -155,29 +155,43 @@ race_idはnetkeiba系の12桁IDを入力します。
 </div>
 
 <div class="card full">
-<h2>Bridge race_id・ライブ取得設定</h2>
+<h2>Bridge レース一覧取得・ドロップダウン選択</h2>
 
-<label>Bridge用 race_id</label>
-<input id="bridgeRaceId" placeholder="例：202642112511 / 202605080112">
+<div class="note ok">
+ここを改善しました。<br>
+以前は <b>race_id手入力</b> でしたが、今回は <b>Bridgeで当日レース一覧を取得 → ドロップダウンから選択 → race_id自動反映</b> できます。
+</div>
+
+<label>Bridge取得日</label>
+<input id="bridgeDate" type="date">
 
 <label>Bridge主催</label>
-<select id="bridgeOrg">
+<select id="bridgeOrg" onchange="clearBridgeRaceOptions()">
 <option value="NAR">地方/NAR</option>
 <option value="JRA">中央/JRA</option>
 </select>
 
-<button class="blue" onclick="bridgeFetchOddsOnce()">Bridge現在オッズ取得</button>
-<button class="green" onclick="startBridgeAutoOdds()">Bridge 15秒自動取得</button>
-<button class="danger" onclick="stopBridgeAutoOdds()">Bridge停止</button>
+<button class="blue" onclick="fetchBridgeRaceList()">Bridgeでレース一覧取得</button>
+<button class="secondary" onclick="selectBridgeRace()">選択レースを反映</button>
 <button class="secondary" onclick="showLastBridgeRaw()">raw確認</button>
-<button class="secondary" onclick="syncBridgeRaceFromSelected()">選択レースから主催反映</button>
+
+<label>取得レース一覧</label>
+<select id="bridgeRaceSelect" onchange="selectBridgeRace()">
+<option value="">まずレース一覧を取得してください</option>
+</select>
+
+<label>Bridge用 race_id</label>
+<input id="bridgeRaceId" placeholder="ドロップダウン選択で自動入力。手入力も可">
 
 <div class="note">
 Bridge状態：<strong id="bridgeDetail">未確認</strong><br>
+レース一覧取得：<strong id="bridgeRaceListStatus">未取得</strong><br>
 自動取得：<strong id="bridgeAutoState" class="snapshotOff">停止中</strong>　
 最終取得：<strong id="bridgeLastFetch">--</strong>　
 取得件数：<strong id="bridgeOddsCount">0件</strong>
 </div>
+
+<div id="bridgeRaceListTable"></div>
 </div>
 
 <div class="card full">
@@ -197,6 +211,9 @@ wide,4-10,3.6
 umaren,4-11,7.4
 umaren,4-10,8.0</textarea>
 
+<button class="blue" onclick="bridgeFetchOddsOnce()">Bridge現在オッズ取得</button>
+<button class="green" onclick="startBridgeAutoOdds()">Bridge 15秒自動取得</button>
+<button class="danger" onclick="stopBridgeAutoOdds()">Bridge停止</button>
 <button id="runBtn" onclick="runEngine()">現在欄からEV計算</button>
 <button class="danger" onclick="clearTickets()">買い目クリア</button>
 <button class="blue" onclick="addOddsSnapshot('手動')">手動スナップ</button>
@@ -330,105 +347,42 @@ sanrenpuku,4-7-9,8800</textarea>
 const DATA={
 "2026-11-25":{venues:[
 {org:"NAR",venue:"浦和",code:"18",races:[
-["1R","12:20","３歳未格付選抜馬","左800m","12頭"],
-["2R","12:50","ランチタイムＣ３四","左1300m","11頭"],
-["3R","13:20","２歳三","左1400m","12頭"],
-["4R","13:50","２歳二","左1400m","12頭"],
-["5R","14:20","Ｃ２五 六","左1400m","13頭"],
-["6R","14:50","Ｃ２五 六","左1500m","12頭"],
-["7R","15:25","近いがうまい 埼玉の卵賞特別Ｃ３選抜馬イ","左2000m","12頭"],
-["8R","16:00","近いがうまい 埼玉の豚肉賞特別Ｃ１一","左1400m","14頭"],
-["9R","16:35","浦和ジョッキーズトライアル第1戦Ｃ２選抜馬","左1400m","12頭"],
-["10R","17:10","近いがうまい 埼玉の牛乳賞特別Ｂ３二","左1500m","12頭"],
-["11R","17:45","浦和記念JpnII","左2000m","9頭"],
-["12R","18:20","近いがうまい 埼玉の牛肉賞特別Ｂ２二Ｂ３一","左1400m","14頭"]]},
+["1R","12:20","３歳未格付選抜馬","左800m","12頭"],["2R","12:50","ランチタイムＣ３四","左1300m","11頭"],["3R","13:20","２歳三","左1400m","12頭"],["4R","13:50","２歳二","左1400m","12頭"],
+["5R","14:20","Ｃ２五 六","左1400m","13頭"],["6R","14:50","Ｃ２五 六","左1500m","12頭"],["7R","15:25","近いがうまい 埼玉の卵賞特別Ｃ３選抜馬イ","左2000m","12頭"],["8R","16:00","近いがうまい 埼玉の豚肉賞特別Ｃ１一","左1400m","14頭"],
+["9R","16:35","浦和ジョッキーズトライアル第1戦Ｃ２選抜馬","左1400m","12頭"],["10R","17:10","近いがうまい 埼玉の牛乳賞特別Ｂ３二","左1500m","12頭"],["11R","17:45","浦和記念JpnII","左2000m","9頭"],["12R","18:20","近いがうまい 埼玉の牛肉賞特別Ｂ２二Ｂ３一","左1400m","14頭"]]},
 {org:"NAR",venue:"名古屋",code:"24",races:[
-["1R","14:40","有松絞り賞Ｃ１５","右1500m","12頭"],
-["2R","15:15","Ｃ１４組","右1500m","12頭"],
-["3R","15:50","のんちゃんありがとう結婚３０年Ｃ１３","右1500m","12頭"],
-["4R","16:25","２歳牝馬","右1500m","11頭"],
-["5R","17:00","Ｃ１２組","右1500m","12頭"],
-["6R","17:30","美濃路疾風戦Ｃ１１","右920m","12頭"],
-["7R","18:05","トリニタス賞Ｂ５","右1500m","12頭"],
-["8R","18:35","Ｂ４組","右1500m","12頭"],
-["9R","19:05","三つ星疾風戦Ｂ３","右920m","12頭"],
-["10R","19:40","Ｊ交 名古屋チャレンジカップ ディアナＡ","右1500m","12頭"],
-["11R","20:15","アポロ特別Ａ４","右1400m","12頭"],
-["12R","20:50","金シャチ最終戦Ｃ","右1500m","12頭"]]},
+["1R","14:40","有松絞り賞Ｃ１５","右1500m","12頭"],["2R","15:15","Ｃ１４組","右1500m","12頭"],["3R","15:50","のんちゃんありがとう結婚３０年Ｃ１３","右1500m","12頭"],["4R","16:25","２歳牝馬","右1500m","11頭"],
+["5R","17:00","Ｃ１２組","右1500m","12頭"],["6R","17:30","美濃路疾風戦Ｃ１１","右920m","12頭"],["7R","18:05","トリニタス賞Ｂ５","右1500m","12頭"],["8R","18:35","Ｂ４組","右1500m","12頭"],
+["9R","19:05","三つ星疾風戦Ｂ３","右920m","12頭"],["10R","19:40","Ｊ交 名古屋チャレンジカップ ディアナＡ","右1500m","12頭"],["11R","20:15","アポロ特別Ａ４","右1400m","12頭"],["12R","20:50","金シャチ最終戦Ｃ","右1500m","12頭"]]},
 {org:"NAR",venue:"園田",code:"27",races:[
-["1R","10:40","Ｃ３四３歳以上","右1400m","10頭"],
-["2R","11:10","Ｃ３三３歳以上","右1400m","10頭"],
-["3R","11:40","２歳未勝利","右1230m","12頭"],
-["4R","12:10","シリウス賞Ｃ３","右1230m","10頭"],
-["5R","12:45","カストル賞Ｃ２二","右1400m","12頭"],
-["6R","13:20","Ｃ３二３歳以上","右1400m","10頭"],
-["7R","14:00","Ｊ認 アッパートライリミテッド２歳特別","右1700m","7頭"],
-["8R","14:30","Ｃ３一３歳以上","右1400m","10頭"],
-["9R","15:00","Ｃ２一３歳以上","右1400m","12頭"],
-["10R","15:35","Ｂ１Ｂ２ ３歳以上特別","右820m","12頭"],
-["11R","16:10","ＪＡみのり播州百日どり賞Ａ１Ａ２","右1400m","10頭"],
-["12R","16:45","サザンカ賞Ｃ１","右1400m","12頭"]]}
+["1R","10:40","Ｃ３四３歳以上","右1400m","10頭"],["2R","11:10","Ｃ３三３歳以上","右1400m","10頭"],["3R","11:40","２歳未勝利","右1230m","12頭"],["4R","12:10","シリウス賞Ｃ３","右1230m","10頭"],
+["5R","12:45","カストル賞Ｃ２二","右1400m","12頭"],["6R","13:20","Ｃ３二３歳以上","右1400m","10頭"],["7R","14:00","Ｊ認 アッパートライリミテッド２歳特別","右1700m","7頭"],["8R","14:30","Ｃ３一３歳以上","右1400m","10頭"],
+["9R","15:00","Ｃ２一３歳以上","右1400m","12頭"],["10R","15:35","Ｂ１Ｂ２ ３歳以上特別","右820m","12頭"],["11R","16:10","ＪＡみのり播州百日どり賞Ａ１Ａ２","右1400m","10頭"],["12R","16:45","サザンカ賞Ｃ１","右1400m","12頭"]]}
 ]},
 "2026-11-28":{venues:[
 {org:"JRA",venue:"東京",code:"JRA-TOKYO",races:[
-["1R","09:50","2歳未勝利","ダ1600m",""],
-["2R","10:20","2歳未勝利","ダ1400m",""],
-["3R","10:50","2歳未勝利 牝","芝1800m",""],
-["4R","11:20","2歳新馬","ダ1400m",""],
-["5R","12:10","2歳新馬","芝1400m",""],
-["6R","12:40","2歳新馬","ダ1600m",""],
-["7R","13:10","3歳以上1勝クラス","ダ2100m",""],
-["8R","13:40","3歳以上2勝クラス","芝1600m",""],
-["9R","14:15","セレブレイション賞","ダ2100m",""],
-["10R","14:50","シャングリラS","ダ1400m",""],
-["11R","15:25","キャピタルS(L)","芝1600m",""],
-["12R","16:00","3歳以上1勝クラス","芝2400m",""]]},
+["1R","09:50","2歳未勝利","ダ1600m",""],["2R","10:20","2歳未勝利","ダ1400m",""],["3R","10:50","2歳未勝利 牝","芝1800m",""],["4R","11:20","2歳新馬","ダ1400m",""],
+["5R","12:10","2歳新馬","芝1400m",""],["6R","12:40","2歳新馬","ダ1600m",""],["7R","13:10","3歳以上1勝クラス","ダ2100m",""],["8R","13:40","3歳以上2勝クラス","芝1600m",""],
+["9R","14:15","セレブレイション賞","ダ2100m",""],["10R","14:50","シャングリラS","ダ1400m",""],["11R","15:25","キャピタルS(L)","芝1600m",""],["12R","16:00","3歳以上1勝クラス","芝2400m",""]]},
 {org:"JRA",venue:"京都",code:"JRA-KYOTO",races:[
-["1R","10:05","2歳未勝利","ダ1400m",""],
-["2R","10:35","2歳未勝利","ダ1800m",""],
-["3R","11:05","2歳未勝利","芝1600m",""],
-["4R","11:35","障害3歳以上未勝利","ダ2910m",""],
-["5R","12:25","2歳新馬","芝1600m",""],
-["6R","12:55","2歳新馬","ダ1400m",""],
-["7R","13:25","3歳以上1勝クラス","芝1800m外",""],
-["8R","13:55","3歳以上2勝クラス","ダ1200m",""],
-["9R","14:30","栂尾特別","ダ1800m",""],
-["10R","15:05","東山S","芝1400m外",""],
-["11R","15:40","京都2歳S(GIII)","芝2000m",""],
-["12R","16:15","3歳以上2勝クラス","芝1200m",""]]}
+["1R","10:05","2歳未勝利","ダ1400m",""],["2R","10:35","2歳未勝利","ダ1800m",""],["3R","11:05","2歳未勝利","芝1600m",""],["4R","11:35","障害3歳以上未勝利","ダ2910m",""],
+["5R","12:25","2歳新馬","芝1600m",""],["6R","12:55","2歳新馬","ダ1400m",""],["7R","13:25","3歳以上1勝クラス","芝1800m外",""],["8R","13:55","3歳以上2勝クラス","ダ1200m",""],
+["9R","14:30","栂尾特別","ダ1800m",""],["10R","15:05","東山S","芝1400m外",""],["11R","15:40","京都2歳S(GIII)","芝2000m",""],["12R","16:15","3歳以上2勝クラス","芝1200m",""]]}
 ]},
 "2026-11-29":{venues:[
 {org:"JRA",venue:"東京",code:"JRA-TOKYO",races:[
-["1R","09:30","2歳未勝利","ダ1600m",""],
-["2R","09:55","2歳未勝利","芝1600m",""],
-["3R","10:25","2歳未勝利","ダ1400m",""],
-["4R","10:55","2歳未勝利","芝1400m",""],
-["5R","11:25","2歳新馬","ダ1600m",""],
-["6R","12:15","2歳新馬","芝1600m",""],
-["7R","12:45","3歳以上1勝クラス 牝","ダ1400m",""],
-["8R","13:15","オリエンタル賞","芝2000m",""],
-["9R","13:50","カトレアS","ダ1600m",""],
-["10R","14:25","アプローズ賞","ダ1400m",""],
-["11R","15:00","ウェルカムS","芝2000m",""],
-["12R","15:40","ジャパンカップ(GI)","芝2400m",""]]},
+["1R","09:30","2歳未勝利","ダ1600m",""],["2R","09:55","2歳未勝利","芝1600m",""],["3R","10:25","2歳未勝利","ダ1400m",""],["4R","10:55","2歳未勝利","芝1400m",""],
+["5R","11:25","2歳新馬","ダ1600m",""],["6R","12:15","2歳新馬","芝1600m",""],["7R","12:45","3歳以上1勝クラス 牝","ダ1400m",""],["8R","13:15","オリエンタル賞","芝2000m",""],
+["9R","13:50","カトレアS","ダ1600m",""],["10R","14:25","アプローズ賞","ダ1400m",""],["11R","15:00","ウェルカムS","芝2000m",""],["12R","15:40","ジャパンカップ(GI)","芝2400m",""]]},
 {org:"JRA",venue:"京都",code:"JRA-KYOTO",races:[
-["1R","09:40","2歳未勝利","ダ1800m",""],
-["2R","10:10","2歳未勝利","芝1800m外",""],
-["3R","10:40","2歳新馬","芝1200m",""],
-["4R","11:10","3歳以上1勝クラス","ダ1400m",""],
-["5R","11:40","障害3歳以上未勝利","ダ2910m",""],
-["6R","12:30","2歳新馬","芝2000m",""],
-["7R","13:00","3歳以上1勝クラス","ダ1800m",""],
-["8R","13:30","3歳以上2勝クラス","芝2200m外",""],
-["9R","14:05","白菊賞","芝1600m",""],
-["10R","14:40","花園S","ダ1800m",""],
-["11R","15:15","オータムリーフS","ダ1400m",""],
-["12R","16:15","京阪杯(GIII)","芝1200m",""]]}
+["1R","09:40","2歳未勝利","ダ1800m",""],["2R","10:10","2歳未勝利","芝1800m外",""],["3R","10:40","2歳新馬","芝1200m",""],["4R","11:10","3歳以上1勝クラス","ダ1400m",""],
+["5R","11:40","障害3歳以上未勝利","ダ2910m",""],["6R","12:30","2歳新馬","芝2000m",""],["7R","13:00","3歳以上1勝クラス","ダ1800m",""],["8R","13:30","3歳以上2勝クラス","芝2200m外",""],
+["9R","14:05","白菊賞","芝1600m",""],["10R","14:40","花園S","ダ1800m",""],["11R","15:15","オータムリーフS","ダ1400m",""],["12R","16:15","京阪杯(GIII)","芝1200m",""]]}
 ]}
 };
 
 let horses=[],winRates={},tickets=[],results=[],countdownTimer=null;
-let oddsSnapshots=[],bridgeAutoTimer=null;
+let oddsSnapshots=[],bridgeAutoTimer=null,bridgeRaceOptions=[];
 
 const marks=["◎","○","▲","☆","△","△","△"];
 
@@ -438,13 +392,24 @@ const BET_LABEL={
 };
 
 const JRA_TYPE_MAP={
- 1:"win",2:"wakuren",3:"umaren",4:"wide",
- 5:"umatan",6:"sanrenpuku",7:"sanrentan",8:"place"
+ 1:"win",2:"place",3:"wakuren",4:"umaren",
+ 5:"wide",6:"umatan",7:"sanrenpuku",8:"sanrentan"
 };
 
 const NAR_TYPE_MAP={
- 1:"win",2:"place",3:"wakuren",4:"umaren",
- 5:"wide",6:"umatan",7:"sanrenpuku",8:"sanrentan"
+ b1:"winplace",b3:"wakuren",b4:"umaren",b5:"wide",
+ b6:"umatan",b7:"sanrenpuku",b8:"sanrentan"
+};
+
+const JRA_VENUE={
+ "01":"札幌","02":"函館","03":"福島","04":"新潟","05":"東京",
+ "06":"中山","07":"中京","08":"京都","09":"阪神","10":"小倉"
+};
+
+const NAR_VENUE={
+ "30":"門別","31":"盛岡","32":"水沢","35":"浦和","36":"船橋",
+ "39":"大井","40":"川崎","42":"金沢","43":"笠松","44":"名古屋",
+ "46":"園田","47":"姫路","48":"高知","50":"佐賀","60":"帯広"
 };
 
 function init(){
@@ -459,6 +424,8 @@ function init(){
  const today=new Date().toISOString().slice(0,10);
  d.value=DATA[today]?today:Object.keys(DATA)[0];
 
+ document.getElementById("bridgeDate").value=d.value;
+
  document.getElementById("organizerSelect").value="ALL";
 
  renderVenueSelect();
@@ -472,7 +439,6 @@ function init(){
  drawOddsGraph();
  detectBridge();
 }
-
 window.onload=init;
 
 function label(t){return BET_LABEL[t]||t}
@@ -497,6 +463,7 @@ function selectedVenues(){
 }
 
 function onDateChange(){
+ document.getElementById("bridgeDate").value=selectedDate();
  renderVenueSelect();
  autoSelectNearestRace();
  renderAllRaceOrder();
@@ -833,9 +800,205 @@ function syncBridgeOrgFromSelected(){
  document.getElementById("bridgeOrg").value=v.org==="JRA"?"JRA":"NAR";
 }
 
-function syncBridgeRaceFromSelected(){
- syncBridgeOrgFromSelected();
- alert("主催は反映しました。race_idはnetkeibaの12桁IDを手入力してください。");
+function clearBridgeRaceOptions(){
+ bridgeRaceOptions=[];
+ const sel=document.getElementById("bridgeRaceSelect");
+ sel.innerHTML=`<option value="">レース一覧を取得してください</option>`;
+ document.getElementById("bridgeRaceListTable").innerHTML="";
+ document.getElementById("bridgeRaceListStatus").textContent="未取得";
+}
+
+async function fetchBridgeRaceList(){
+ const org=document.getElementById("bridgeOrg").value;
+ const dateStr=document.getElementById("bridgeDate").value.replaceAll("-","");
+
+ if(!/^\d{8}$/.test(dateStr)){
+  alert("Bridge取得日を確認してください。");
+  return;
+ }
+
+ document.getElementById("bridgeRaceListStatus").textContent="取得中...";
+
+ const urls=org==="JRA"
+  ? [
+     `https://race.netkeiba.com/top/race_list_sub.html?kaisai_date=${dateStr}`,
+     `https://race.netkeiba.com/top/race_list.html?kaisai_date=${dateStr}`,
+     `https://db.netkeiba.com/race/list/${dateStr}/`
+    ]
+  : [
+     `https://nar.netkeiba.com/top/race_list.html?kaisai_date=${dateStr}`,
+     `https://nar.netkeiba.com/top/race_list.html`,
+     `https://db.netkeiba.com/race/list/${dateStr}/`
+    ];
+
+ let all=[];
+
+ for(const url of urls){
+  try{
+   const res=await bridgeFetchCompat(url,{method:"GET",timeout:60000});
+   const text=res.text||"";
+
+   window.__lastBridgeRaw=text;
+   window.__lastBridgeUrl=url;
+
+   const parsed=parseRaceListHtml(text,org,url);
+
+   parsed.forEach(r=>all.push(r));
+
+   if(all.length)break;
+
+  }catch(e){
+   console.warn("race list failed",url,e);
+  }
+ }
+
+ const uniq=new Map();
+
+ all.forEach(r=>{
+  if(/^\d{12}$/.test(r.raceId))uniq.set(r.raceId,r);
+ });
+
+ bridgeRaceOptions=[...uniq.values()].sort((a,b)=>{
+  if(a.venue!==b.venue)return a.venue.localeCompare(b.venue,"ja");
+  return a.raceNo-b.raceNo;
+ });
+
+ renderBridgeRaceOptions();
+}
+
+function parseRaceListHtml(html,org,srcUrl){
+ const out=[];
+ const doc=new DOMParser().parseFromString(String(html||""),"text/html");
+ const links=[...doc.querySelectorAll("a[href*='race_id='],a[href*='/race/']")];
+
+ links.forEach(a=>{
+  const href=a.getAttribute("href")||"";
+  const text=(a.textContent||"").replace(/\s+/g," ").trim();
+  let m=href.match(/race_id=(\d{12})/)||href.match(/\/race\/(\d{12})/);
+  if(!m)return;
+
+  const raceId=m[1];
+
+  let box=a.closest("li,dd,dl,tr,div")||a;
+  let txt=(box.textContent||text||"").replace(/\s+/g," ").trim();
+
+  const code=raceId.slice(4,6);
+  const raceNo=parseInt(raceId.slice(10,12),10);
+  const venue=org==="JRA"?(JRA_VENUE[code]||"場所"+code):(NAR_VENUE[code]||"場所"+code);
+
+  let title="";
+  const titleEl=box.querySelector(".ItemTitle,.RaceList_ItemTitle,.RaceName,.Race_Name");
+  if(titleEl)title=titleEl.textContent.replace(/\s+/g," ").trim();
+  if(!title){
+   title=text.replace(/\s+/g," ").trim();
+   if(title.length>40)title="";
+  }
+
+  let time="";
+  const timeEl=box.querySelector(".RaceList_Itemtime,.RaceTime,.time");
+  if(timeEl)time=timeEl.textContent.replace(/\s+/g," ").trim();
+  if(!time){
+   const tm=txt.match(/(\d{1,2}:\d{2})/);
+   if(tm)time=tm[1];
+  }
+
+  let dist="";
+  const dm=txt.match(/(芝|ダ|障|ダート)?\s?(\d{3,4})m/);
+  if(dm)dist=(dm[1]||"")+dm[2]+"m";
+
+  let heads="";
+  const hm=txt.match(/(\d{1,2})頭/);
+  if(hm)heads=hm[1]+"頭";
+
+  out.push({
+   org,
+   raceId,
+   venue,
+   raceNo,
+   title:title||`${venue}${raceNo}R`,
+   time,
+   dist,
+   heads,
+   label:`${venue} ${raceNo}R ${time?time+" ":""}${title||""} ${dist} ${heads}`.trim(),
+   srcUrl
+  });
+ });
+
+ return out;
+}
+
+function renderBridgeRaceOptions(){
+ const sel=document.getElementById("bridgeRaceSelect");
+ sel.innerHTML="";
+
+ if(!bridgeRaceOptions.length){
+  sel.innerHTML=`<option value="">取得0件。raw確認してください</option>`;
+  document.getElementById("bridgeRaceListStatus").textContent="0件";
+  document.getElementById("bridgeRaceListTable").innerHTML="";
+  return;
+ }
+
+ bridgeRaceOptions.forEach((r,i)=>{
+  const o=document.createElement("option");
+  o.value=r.raceId;
+  o.textContent=`${r.label} / ${r.raceId}`;
+  sel.appendChild(o);
+ });
+
+ document.getElementById("bridgeRaceListStatus").textContent=`${bridgeRaceOptions.length}件`;
+
+ document.getElementById("bridgeRaceListTable").innerHTML=
+ `<table>
+  <thead><tr><th>No</th><th>主催</th><th>場</th><th>R</th><th>時刻</th><th>レース名</th><th>条件</th><th>race_id</th><th>選択</th></tr></thead>
+  <tbody>
+  ${bridgeRaceOptions.map((r,i)=>`
+   <tr>
+    <td>${i+1}</td>
+    <td>${r.org}</td>
+    <td>${r.venue}</td>
+    <td>${r.raceNo}R</td>
+    <td>${r.time||"--"}</td>
+    <td>${escapeHtml(r.title)}</td>
+    <td>${escapeHtml((r.dist||"")+" "+(r.heads||""))}</td>
+    <td>${r.raceId}</td>
+    <td><button onclick="selectBridgeRaceById('${r.raceId}')">選択</button></td>
+   </tr>`).join("")}
+  </tbody>
+ </table>`;
+
+ selectBridgeRace();
+}
+
+function selectBridgeRaceById(raceId){
+ document.getElementById("bridgeRaceSelect").value=raceId;
+ selectBridgeRace();
+}
+
+function selectBridgeRace(){
+ const raceId=document.getElementById("bridgeRaceSelect").value;
+ if(!raceId)return;
+
+ const r=bridgeRaceOptions.find(x=>x.raceId===raceId);
+ if(!r)return;
+
+ document.getElementById("bridgeRaceId").value=r.raceId;
+ document.getElementById("bridgeOrg").value=r.org;
+
+ if(r.time){
+  const d=document.getElementById("bridgeDate").value;
+  document.getElementById("startTime").value=`${d}T${r.time}`;
+ }
+
+ document.getElementById("summaryRace").textContent=`${r.venue}${r.raceNo}R`;
+
+ document.getElementById("raceInfo").innerHTML=
+ `<b>${r.org} ${r.venue}${r.raceNo}R</b><br>
+ race_id：${r.raceId}<br>
+ 発走：${r.time||"--"}<br>
+ 競走：${escapeHtml(r.title)}<br>
+ 条件：${escapeHtml((r.dist||"")+" "+(r.heads||""))}`;
+
+ createPaper();
 }
 
 async function bridgeFetchOddsOnce(){
@@ -843,7 +1006,7 @@ async function bridgeFetchOddsOnce(){
  const org=document.getElementById("bridgeOrg").value;
 
  if(!/^\d{12}$/.test(raceId)){
-  alert("Bridge用 race_id を12桁で入力してください。");
+  alert("Bridge用 race_id をドロップダウンで選択、または12桁で入力してください。");
   return;
  }
 
@@ -872,19 +1035,17 @@ async function bridgeFetchOddsOnce(){
 }
 
 async function bridgeFetchAllOdds(org,raceId){
- const map=org==="JRA"?JRA_TYPE_MAP:NAR_TYPE_MAP;
- const base=org==="JRA"
-  ? "https://race.netkeiba.com/api/api_get_jra_odds.html"
-  : "https://nar.netkeiba.com/api/api_get_nar_odds.html";
+ if(org==="JRA")return await bridgeFetchJraOdds(raceId);
+ return await bridgeFetchNarOdds(raceId);
+}
 
+async function bridgeFetchJraOdds(raceId){
  const all=[];
 
- for(const typeNo of Object.keys(map)){
-  const betType=map[typeNo];
+ for(const typeNo of Object.keys(JRA_TYPE_MAP)){
+  const betType=JRA_TYPE_MAP[typeNo];
 
-  const url=org==="JRA"
-   ? `${base}?race_id=${raceId}&type=${typeNo}&action=update&output=json&compress=0`
-   : `${base}?race_id=${raceId}&type=${typeNo}`;
+  const url=`https://race.netkeiba.com/api/api_get_jra_odds.html?race_id=${raceId}&type=${typeNo}&action=update&sort=odds&compress=0&output=json`;
 
   try{
    const res=await bridgeFetchCompat(url,{method:"GET",timeout:60000});
@@ -893,24 +1054,145 @@ async function bridgeFetchAllOdds(org,raceId){
    window.__lastBridgeRaw=text;
    window.__lastBridgeUrl=url;
 
-   const parsed=parseBridgeOddsText(text,betType);
-
+   const parsed=parseJraOddsJson(text,betType,typeNo);
    parsed.forEach(o=>all.push(o));
 
+   if(!parsed.length){
+    const fallback=parseBridgeOddsText(text,betType);
+    fallback.forEach(o=>all.push(o));
+   }
+
   }catch(e){
-   console.warn("odds type failed",typeNo,e);
+   console.warn("JRA odds type failed",typeNo,e);
   }
  }
 
+ return uniqueOdds(all);
+}
+
+async function bridgeFetchNarOdds(raceId){
+ const all=[];
+
+ for(const narType of Object.keys(NAR_TYPE_MAP)){
+  const betType=NAR_TYPE_MAP[narType];
+
+  const url=`https://nar.netkeiba.com/odds/index.html?race_id=${raceId}&type=${narType}`;
+
+  try{
+   const res=await bridgeFetchCompat(url,{method:"GET",timeout:60000});
+   const text=res.text||"";
+
+   window.__lastBridgeRaw=text;
+   window.__lastBridgeUrl=url;
+
+   const parsed=parseNarOddsHtml(text,betType);
+   parsed.forEach(o=>all.push(o));
+
+   if(!parsed.length){
+    const fallback=parseBridgeOddsText(text,betType);
+    fallback.forEach(o=>all.push(o));
+   }
+
+  }catch(e){
+   console.warn("NAR odds type failed",narType,e);
+  }
+ }
+
+ return uniqueOdds(all);
+}
+
+function uniqueOdds(list){
  const uniq=new Map();
 
- all.forEach(o=>{
+ list.forEach(o=>{
   if(!o.type||!o.combo||!isFinite(o.odds)||o.odds<=0)return;
   uniq.set(oddsKey(o.type,o.combo),o);
  });
 
- return [...uniq.values()];
+ return [...uniq.values()].sort((a,b)=>{
+  if(a.type!==b.type)return a.type.localeCompare(b.type);
+  return a.combo.localeCompare(b.combo,undefined,{numeric:true});
+ });
 }
+
+function parseJraOddsJson(text,betType,typeNo){
+ const out=[];
+ let raw=String(text||"").trim();
+
+ if(!raw)return out;
+
+ const cb=raw.match(/^[^(]+\((.*)\)\s*;?\s*$/s);
+ if(cb)raw=cb[1];
+
+ let json=null;
+ try{json=JSON.parse(raw)}catch(e){return out}
+
+ const odds=json&&json.data&&json.data.odds?json.data.odds:null;
+ if(!odds)return out;
+
+ if(typeNo==="1"||typeNo==="2"){
+  const win=odds["1"]||{};
+  const place=odds["2"]||{};
+
+  Object.keys(win).forEach(k=>{
+   const v=win[k];
+   if(v&&isBridgeOdd(v[0])){
+    out.push({type:"win",combo:String(parseInt(k,10)),odds:+v[0]});
+   }
+  });
+
+  Object.keys(place).forEach(k=>{
+   const v=place[k];
+   if(v&&isBridgeOdd(v[0])){
+    const min=+v[0];
+    const max=isBridgeOdd(v[1])?+v[1]:min;
+    out.push({type:"place",combo:String(parseInt(k,10)),odds:((min+max)/2)});
+   }
+  });
+
+  return out;
+ }
+
+ const obj=odds[String(typeNo)]||odds;
+ extractOddsDeep(obj,betType,out,[]);
+ return out;
+}
+
+function parseNarOddsHtml(html,betType){
+ const out=[];
+ const raw=String(html||"");
+
+ if(betType==="winplace"){
+  parseNarTanFuku(raw,out);
+  return out;
+ }
+
+ extractOddsFromRawText(raw,betType,out);
+ return out;
+}
+
+function parseNarTanFuku(html,out){
+ const doc=new DOMParser().parseFromString(String(html||""),"text/html");
+
+ const rows=[...doc.querySelectorAll("tr")];
+
+ rows.forEach(tr=>{
+  const text=tr.textContent.replace(/\s+/g," ").trim();
+  const nums=text.match(/\b\d{1,2}\b/g);
+  const odds=text.match(/\d+\.\d+/g);
+
+  if(!nums||!odds)return;
+
+  const n=parseInt(nums[0],10);
+
+  if(n>=1&&n<=18){
+   if(odds[0])out.push({type:"win",combo:String(n),odds:+odds[0]});
+   if(odds[1])out.push({type:"place",combo:String(n),odds:+odds[1]});
+  }
+ });
+}
+
+/* 強化汎用パーサー */
 
 function parseBridgeOddsText(text,betType){
  const out=[];
@@ -927,14 +1209,7 @@ function parseBridgeOddsText(text,betType){
   extractOddsFromRawText(raw,betType,out);
  }
 
- const uniq=new Map();
-
- out.forEach(o=>{
-  if(!o.type||!o.combo||!isFinite(o.odds)||o.odds<=0)return;
-  uniq.set(o.type+":"+o.combo,o);
- });
-
- return [...uniq.values()];
+ return uniqueOdds(out);
 }
 
 function extractOddsDeep(node,betType,out,path=[]){
@@ -944,7 +1219,7 @@ function extractOddsDeep(node,betType,out,path=[]){
   node.forEach((v,i)=>extractOddsDeep(v,betType,out,path.concat(i)));
 
   const flat=node.map(v=>String(v).trim());
-  const nums=flat.filter(v=>/^\d{1,2}$/.test(v)).map(Number);
+  const nums=flat.filter(v=>/^\d{1,2}$/.test(v)).map(Number).filter(n=>n>=1&&n<=18);
   const odds=flat.filter(v=>/^\d+(?:\.\d+)?$/.test(v)).map(Number).filter(n=>n>=1&&n<100000);
 
   const need=comboNeed(betType);
@@ -1029,7 +1304,7 @@ function comboFromObjectLoose(o,betType){
  const need=comboNeed(betType);
 
  const keyGroups=[
-  ["umaban","horse_number","horseNo","horse_no","number","num","wakuban"],
+  ["umaban","horse_number","horseNo","horse_no","number","num","wakuban","horse"],
   ["umaban1","horse_number1","horseNo1","horse_no1","number1","num1","n1"],
   ["umaban2","horse_number2","horseNo2","horse_no2","number2","num2","n2"],
   ["umaban3","horse_number3","horseNo3","horse_no3","number3","num3","n3"]
@@ -1088,7 +1363,7 @@ function extractOddsFromRawText(text,betType,out){
  const need=comboNeed(betType);
  const raw=String(text||"");
 
- const re=/(\d{1,2})(?:[-_,:\s]+)(\d{1,2})?(?:[-_,:\s]+)?(\d{1,2})?[^0-9.]{0,40}(\d+\.\d+)/g;
+ const re=/(\d{1,2})(?:[-_,:\s]+)(\d{1,2})?(?:[-_,:\s]+)?(\d{1,2})?[^0-9.]{0,60}(\d+\.\d+)/g;
 
  let m;
 
@@ -1708,6 +1983,9 @@ function currentRaceLabel(){
  const v=getVenueObj();
  const r=getRaceObj();
  const rid=document.getElementById("bridgeRaceId").value.trim();
+ const br=bridgeRaceOptions.find(x=>x.raceId===rid);
+
+ if(br)return`${br.org} ${br.venue}${br.raceNo}R ${br.title} / ${rid}`;
 
  return`${v.org} ${v.venue}${r[0]} ${r[2]}${rid?" / "+rid:""}`;
 }
@@ -1882,22 +2160,25 @@ function createPaper(){
  const sec=sorted[1];
  const thi=sorted[2];
  const rid=document.getElementById("bridgeRaceId").value.trim();
+ const br=bridgeRaceOptions.find(x=>x.raceId===rid);
+
+ const raceTitle=br?`${br.org} ${br.venue}${br.raceNo}R ${br.title}`:`${v.org} ${v.venue}${r[0]}　${r[2]}`;
+ const raceSub=br?`発走：${br.time||"--"} / 条件：${br.dist||""} ${br.heads||""}`:`発走：${r[1]} / 3分前：${minus3(r[1])}<br>条件：${r[3]} ${r[4]}`;
 
  const txt=tickets.length
   ? tickets.map(t=>`${label(t.type)} ${t.combo}　EV${t.ev.toFixed(2)}　${t.stake}円`).join("<br>")
   : "まだ買い目はありません。";
 
  document.getElementById("paperOutput").innerHTML=
- `<b>${v.org} ${v.venue}${r[0]}　${r[2]}</b><br>
- 発走：${r[1]} / 3分前：${minus3(r[1])}<br>
- 条件：${r[3]} ${r[4]}${rid?`<br>race_id：${rid}`:""}<br><br>
+ `<b>${raceTitle}</b><br>
+ ${raceSub}${rid?`<br>race_id：${rid}`:""}<br><br>
  <b>印</b><br>
  ◎ ${top?top.no+" "+escapeHtml(top.name)+" "+((winRates[top.no]||0)*100).toFixed(1)+"%":""}<br>
  ○ ${sec?sec.no+" "+escapeHtml(sec.name)+" "+((winRates[sec.no]||0)*100).toFixed(1)+"%":""}<br>
  ▲ ${thi?thi.no+" "+escapeHtml(thi.name)+" "+((winRates[thi.no]||0)*100).toFixed(1)+"%":""}<br><br>
  <b>買い目</b><br>${txt}<br><br>
  <b>結論</b><br>
- 日程・開催順を見ながら、Bridge 1.7.19経由で15秒ごとの実オッズを取り込み、実際に金額が付いた買い目上位を追う。`;
+ Bridgeで当日レース一覧を取得し、ドロップダウンからrace_idを選択。15秒ごとの実オッズを取り込み、実際に金額が付いた買い目上位を追う。`;
 }
 
 function loadSample(){
@@ -1915,6 +2196,7 @@ function loadSample(){
  onRaceChange();
 
  document.getElementById("bridgeOrg").value="NAR";
+ document.getElementById("bridgeDate").value="2026-11-25";
 
  calculateWinRates();
  runEngine();
