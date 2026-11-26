@@ -642,7 +642,7 @@ function bridgeDomRequest(url,opt){
  });
 }
 /* 同時リクエスト数を制限するキュー */
-const fetchQueue=[];let fetchActive=0;const FETCH_MAX=2;
+const fetchQueue=[];let fetchActive=0;const FETCH_MAX=3;
 function fetchText(url){
  return new Promise((resolve,reject)=>{fetchQueue.push({url,resolve,reject});pumpQueue()});
 }
@@ -841,7 +841,11 @@ function activateRace(r){
  if(r.date===$("raceDate").value){if($("venueSelect").value!=="ALL"&&$("venueSelect").value!==r.venue)$("venueSelect").value="ALL";renderRaceSelect();$("raceSelect").value=k;}
  renderCurrent();renderRaceOrder();renderWatchList();
  const s=ensureState(r);
- if(r.raceId&&!s.shutuba&&!s.shutubaTried&&S.settings.autoShutuba!==false){s.shutubaTried=true;fetchShutubaFor(r,true,false).catch(e=>log("出馬表自動取得失敗 "+r.venue+r.raceNo+"："+e.message))}
+ const hs=parseHorses(s.horseInput),noScore=hs.length>0&&hs.every(h=>!Number.isFinite(h.score));
+ if(r.raceId&&S.settings.autoShutuba!==false&&((!s.shutuba&&!s.shutubaTried)||(noScore&&!s.repairTried))){
+  s.shutubaTried=true;if(noScore)s.repairTried=true;
+  fetchShutubaFor(r,true,noScore).catch(e=>log("出馬表自動取得失敗 "+r.venue+r.raceNo+"："+e.message));
+ }
 }
 function renderCurrent(){
  const s=cur(),r=currentRace;
@@ -980,7 +984,7 @@ async function takeAllWatchSnapshots(){
 function parseHorses(text){
  return String(text||"").trim().split("\n").filter(l=>l.trim()).map(line=>{
   const p=line.split(",").map(x=>x.trim());
-  return{no:parseInt(p[0],10),name:p[1]||"",score:p[2]===""||p[2]==null?NaN:+p[2],style:p[3]||"",memo:p[4]||"",distance:p[5]||"",track:p[6]||"",past:p[7]||""};
+  return{no:parseInt(p[0],10),name:cleanName(p[1]||""),score:p[2]===""||p[2]==null?NaN:+p[2],style:p[3]||"",memo:p[4]||"",distance:p[5]||"",track:p[6]||"",past:p[7]||""};
  }).filter(h=>h.no>=1&&h.no<=18);
 }
 function headsFor(s,race,horses){
@@ -988,7 +992,14 @@ function headsFor(s,race,horses){
  const h=headsOf(race);if(h)return h;
  return Math.max(horses.length,...horses.map(x=>x.no),0);
 }
-function buildModel(horses,heads,temp){
+function buildModel(horses,heads,temp,winOdds){
+ let fallback="";
+ if(horses.length&&!horses.some(h=>Number.isFinite(h.score))){
+  // スコアが1頭もない：単勝オッズがあれば市場評価から、なければ全馬同じ評価で仮計算する
+  const od=winOdds||new Map(),have=horses.filter(h=>od.get(h.no));
+  if(have.length>=Math.max(2,Math.ceil(horses.length*0.5))){const qmax=Math.max(...have.map(h=>1/od.get(h.no)));horses=horses.map(h=>({...h,score:od.get(h.no)?100+temp*Math.log((1/od.get(h.no))/qmax):NaN}));fallback="odds"}
+  else{horses=horses.map(h=>({...h,score:80}));fallback="equal"}
+ }
  const valid=horses.filter(h=>Number.isFinite(h.score));
  if(!valid.length)return null;
  const minS=Math.min(...valid.map(h=>h.score));
@@ -999,7 +1010,7 @@ function buildModel(horses,heads,temp){
  const max=Math.max(...field.map(h=>h.score));
  const ex=field.map(h=>Math.exp((h.score-max)/temp)),sum=ex.reduce((a,b)=>a+b,0);
  const p={};field.forEach((h,i)=>p[h.no]=ex[i]/sum);
- return{p,nos:field.map(h=>h.no),heads:Math.max(heads,field.length),virtual:field.filter(h=>h.virtual).length};
+ return{p,nos:field.map(h=>h.no),heads:Math.max(heads,field.length),virtual:field.filter(h=>h.virtual).length,fallback};
 }
 /* 枠番（JRA/NAR共通の標準割当） */
 function frameOf(no,heads){
@@ -1065,12 +1076,13 @@ function stakeByEV(ev,p){
 function computeState(s,race){
  const horses=parseHorses(s.horseInput);
  const heads=headsFor(s,race,horses);
- const model=buildModel(horses,heads,S.settings.temp);
- s.winRates={};s.placeRates={};s.virtual=0;s.items=[];s.tickets=[];
+ const winOdds=new Map(parseOdds(s.oddsInput).filter(o=>o.type==="win").map(o=>[+o.combo,o.odds]));
+ const model=buildModel(horses,heads,S.settings.temp,winOdds);
+ s.winRates={};s.fallback="";s.placeRates={};s.virtual=0;s.items=[];s.tickets=[];
  if(!model){s.items=parseOdds(s.oddsInput).map(o=>({...o,key:oddsKey(o.type,o.combo),probability:0,ev:0,stake:0}));return s}
  const hp=makeProb(model);
  horses.forEach(h=>{s.winRates[h.no]=model.p[h.no]||0;s.placeRates[h.no]=hp.place(h.no)});
- s.virtual=model.virtual;s.heads=model.heads;
+ s.virtual=model.virtual;s.heads=model.heads;s.fallback=model.fallback||"";
  s.items=parseOdds(s.oddsInput).map(o=>{const probability=hp(o.type,o.combo),ev=probability*o.odds;return{...o,key:oddsKey(o.type,o.combo),probability,ev,stake:stakeByEV(ev,probability)}});
  s.tickets=s.items.filter(i=>i.stake>0).sort((a,b)=>b.stake-a.stake||b.ev-a.ev);
  s.updatedAt=Date.now();
@@ -1081,7 +1093,8 @@ function renderWinRates(){
  const sorted=[...horses].sort((a,b)=>(s.winRates[b.no]||0)-(s.winRates[a.no]||0));
  $("winRateTable").innerHTML=sorted.map((h,i)=>"<tr><td class='mark'>"+(marks[i]||"")+"</td><td>"+h.no+"</td><td class='l'>"+esc(h.name)+"</td><td>"+esc(h.style)+"</td><td>"+(Number.isFinite(h.score)?h.score:"-")+"</td><td>"+((s.winRates[h.no]||0)*100).toFixed(1)+"%</td><td>"+((s.placeRates[h.no]||0)*100).toFixed(1)+"%</td><td class='l'>"+esc(h.memo)+"</td></tr>").join("");
  const w=$("horseWarn");
- if(s.virtual>0)w.innerHTML="<div class='note warn'>出走 "+s.heads+" 頭のうち "+s.virtual+" 頭はスコア未入力のため「最低スコア−5」で補完しています。全頭入力すると精度が上がります。</div>";
+ if(s.fallback)w.innerHTML="<div class='note warn'><b>指数（スコア）が未入力です。</b>"+(s.fallback==="odds"?"単勝オッズ（市場評価）から勝率を仮計算しています。この場合EVはほぼ控除率分の1未満になり、買い目は出にくくなります。":"オッズもないため全馬同じ勝率で仮計算しています。")+"「出馬表から全データを再生成」で指数を作ってください。</div>";
+ else if(s.virtual>0)w.innerHTML="<div class='note warn'>出走 "+s.heads+" 頭のうち "+s.virtual+" 頭はスコア未入力のため「最低スコア−5」で補完しています。全頭入力すると精度が上がります。</div>";
  else if(horses.length&&!headsOf(currentRace)&&!s.headsOverride)w.innerHTML="<div class='note'>出走頭数が不明です。入力漏れがあると勝率が過大になるため、出走頭数を入力してください。</div>";
  else w.innerHTML="";
 }
@@ -1111,6 +1124,7 @@ function tableByHeaders(doc,required){
 }
 /* ===== 出馬表の取得・解析・データ生成 ===== */
 const COND_N=c=>!c?"":/不/.test(c)?"不良":/稍/.test(c)?"稍重":/重/.test(c)?"重":/良/.test(c)?"良":"";
+function cleanName(t){return cleanText(t).replace(/\s*の?\s*データベース.*$/,"").replace(/^\d+\s+/,"").split(" ")[0]}
 function csvSafe(t){return String(t==null?"":t).replace(/[,\n\r]/g,"、").trim()}
 function parseShutuba(html){
  const doc=new DOMParser().parseFromString(String(html||""),"text/html");
@@ -1127,8 +1141,9 @@ function parseShutuba(html){
   const cells=[...tr.children],ct=i=>i>=0&&cells[i]?cleanText(cells[i].textContent):"";
   const pick=(i,sel)=>ct(i)||(tr.querySelector(sel)?cleanText(tr.querySelector(sel).textContent):"");
   const no=parseInt(pick(iN,"td[class*='Umaban']"),10);if(!(no>=1&&no<=18))return;
-  const a=tr.querySelector("a[href*='/horse/']");
-  const name=cleanText(a?a.textContent:pick(iName,".HorseName")).split(" ")[0];if(!name)return;
+  const links=[...tr.querySelectorAll("a[href*='/horse/']")],a=links[0]||null;
+  let name="";links.forEach(x=>{[x.getAttribute("title"),x.textContent].forEach(v=>{const t=cleanName(v||"");if(t&&(!name||t.length<name.length))name=t})});
+  if(!name)name=cleanName(pick(iName,".HorseName"));if(!name)return;
   const hid=a?((a.getAttribute("href")||"").match(/horse\/(\w+)/)||[])[1]||"":"";
   const ja=tr.querySelector("a[href*='/jockey/']"),bw=pick(iB,"td.Weight").match(/(\d{3})\s*\(?([+-]?\d+|前計不|計不)?\)?/);
   horses.push({
@@ -1257,7 +1272,8 @@ async function fetchShutubaFor(race,quiet,force){
  if(sh.race.time&&(!race.time||race.time==="00:00"))patch.time=sh.race.time;
  patchRace(k,patch);
  s.headsOverride=String(act.length);
- if(force||!s.manualHorse||!parseHorses(s.horseInput).length){s.horseInput=shutubaToHorseInput(sh);s.manualHorse=false}
+ const curH=parseHorses(s.horseInput);
+ if(force||!s.manualHorse||!curH.length||curH.every(h=>!Number.isFinite(h.score))){s.horseInput=shutubaToHorseInput(sh);s.manualHorse=false}
  const winLines=act.filter(h=>h.odds).map(h=>"win,"+h.no+","+h.odds);
  if(winLines.length&&!parseOdds(s.oddsInput).some(o=>o.type==="win"))s.oddsInput=winLines.join("\n")+(s.oddsInput?"\n"+s.oddsInput:"");
  computeState(s,race);
@@ -1390,15 +1406,18 @@ function snapTargets(){
  if(S.settings.snapTarget!=="current")S.watchList.forEach((w,i)=>{const r=watchRaceObj(i);m.set(raceKey(r),r)});
  return[...m.values()].filter(r=>{const t=raceTimestamp(r);return Number.isFinite(t)?t>n:raceKey(r)===raceKey(currentRace)}); // 発走したレースは止める
 }
+function snapInterval(r){const t=raceTimestamp(r);return Number.isFinite(t)&&t-Date.now()>30*60000?60000:15000} // 発走30分前までは60秒ごと
+function snapDue(r){const s=ensureState(r);return Date.now()-(s.lastSnapTry||0)>=snapInterval(r)-1500}
 async function snapCycle(){
  if(snapBusy){snapStats.skips++;updateSnapStatus();return}   // 前回の取得が15秒で終わらなかった
  snapBusy=true;const t0=Date.now();let ok=0,fail=0,manual=0;
  try{
-  for(const r of snapTargets()){
-   const s=ensureState(r);
+  const due=snapTargets().filter(snapDue);
+  await Promise.all(due.map(async r=>{
+   const s=ensureState(r);s.lastSnapTry=Date.now();
    if(r.raceId){let n=0;try{n=await fetchOddsFor(r,"15秒スナップ",true)}catch(e){}n?ok++:fail++}
    else if(s.oddsInput){computeState(s,r);addSnapshot(s,r,"15秒スナップ（手入力）");manual++;if(raceKey(r)===raceKey(currentRace))renderLive()}
-  }
+  }));
  }finally{
   snapBusy=false;snapStats.cycles++;
   snapStats.last=nowStr()+" 取得"+ok+"件"+(manual?"・手入力"+manual+"件":"")+(fail?"・失敗"+fail+"件":"")+"（"+((Date.now()-t0)/1000).toFixed(1)+"秒）";
@@ -1411,7 +1430,8 @@ function updateSnapStatus(msg){
  const el=$("snapStatus");if(!el)return;
  if(msg||!snapTimer){el.textContent=msg||"15秒スナップOFF";return}
  const tg=snapTargets();
- el.textContent="15秒スナップON｜対象 "+(tg.length?tg.map(r=>r.venue+r.raceNo).join("・"):"なし（発走前のレースがありません）")+"｜"+(snapStats.last||"初回取得中…")+(snapStats.skips?"｜処理が間に合わずスキップ "+snapStats.skips+"回":"");
+ const fast=tg.filter(r=>snapInterval(r)===15000),slow=tg.filter(r=>snapInterval(r)!==15000);
+ el.textContent="15秒スナップON｜15秒ごと："+(fast.map(r=>r.venue+r.raceNo).join("・")||"なし")+"｜60秒ごと（発走30分超前）："+(slow.map(r=>r.venue+r.raceNo).join("・")||"なし")+"｜"+(snapStats.last||"初回取得中…")+(snapStats.skips?"｜処理が間に合わずスキップ "+snapStats.skips+"回":"");
 }
 /* 入力中の欄を書き換えずに、スナップ関連の表示だけ更新する */
 function renderLive(){
@@ -1888,7 +1908,7 @@ function buildReview(s,race){
  const [w1,w2,w3]=order;const W=byNo.get(w1);
  const top=d.top,topPos=pos(top.no);
  const marked=d.H.filter(h=>h.mark),inTop3=marked.filter(h=>{const p=pos(h.no);return p&&p<=3});
- const horses=parseHorses(s.horseInput),model=buildModel(horses,headsFor(s,race,horses),S.settings.temp),hp=model?makeProb(model):null;
+ const horses=parseHorses(s.horseInput),model=buildModel(horses,headsFor(s,race,horses),S.settings.temp,new Map(parseOdds(s.oddsInput).filter(o=>o.type==="win").map(o=>[+o.combo,o.odds]))),hp=model?makeProb(model):null;
  const trioP=hp&&order.length>=3?hp("sanrentan",order.slice(0,3).join("-")):null;
  const winnerP=model?model.p[w1]||0:0;
  const winnerRank=model?[...model.nos].sort((a,b)=>(model.p[b]||0)-(model.p[a]||0)).indexOf(w1)+1:null;
