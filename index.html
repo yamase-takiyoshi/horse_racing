@@ -97,7 +97,7 @@ tr.next td{background:#e8f7ed}
 <body>
 <header>
 <h1>X96 カレンダー＋8レース監視＋発走時刻順</h1>
-<p>v2.2｜全開催場・1Rから全レース｜中央・地方横断</p>
+<p>v2.6｜全開催場・1Rから全レース｜中央・地方横断</p>
 <label class="sw"><input type="checkbox" id="tsShow" checked><span class="k"></span>時系列を表示</label>
 </header>
 <button id="tsFab" class="sm">📈 時系列を表示</button>
@@ -507,10 +507,24 @@ function loadAppData(){
  }catch(e){log("保存データ読込失敗")}
 }
 
+/* 保存済みの馬名から「のデータベース」等を外す */
+function repairStoredNames(){
+ let n=0;
+ Object.values(S.raceStates).forEach(s=>{
+  if(s.horseInput&&/デ.?タ.?ベ|ﾃﾞｰﾀ|データ/.test(s.horseInput.normalize("NFKC"))){
+   s.horseInput=s.horseInput.split("\n").map(l=>{const p=l.split(",");if(p.length>1){const c=cleanName(p[1]);if(c&&c!==p[1]){p[1]=c;n++}}return p.join(",")}).join("\n");
+   s.newspaper="";s.review=s.review?s.review.replace(/の?データベース/g,""):s.review;
+  }
+  if(s.shutuba&&s.shutuba.horses)s.shutuba.horses.forEach(h=>{const c=cleanName(h.name);if(c&&c!==h.name){h.name=c;n++}
+   if(h.jockey)h.jockey=h.jockey.normalize("NFKC").replace(/\s*\d{2}(\.\d)?\s*(kg)?\s*$/,"").trim()});
+ });
+ if(n)setTimeout(()=>log("保存データの馬名を修復しました（"+n+"件）"),0);
+}
 /* ===== 初期化 ===== */
 function init(){
  loadAppData();
  pruneStates(false);
+ repairStoredNames();
  const today=todayJST();
  $("raceDate").value=today;           // 開くたびに今日を表示
  $("monthInput").value=today.slice(0,7);
@@ -1124,13 +1138,19 @@ function tableByHeaders(doc,required){
 }
 /* ===== 出馬表の取得・解析・データ生成 ===== */
 const COND_N=c=>!c?"":/不/.test(c)?"不良":/稍/.test(c)?"稍重":/重/.test(c)?"重":/良/.test(c)?"良":"";
-function cleanName(t){return cleanText(t).replace(/\s*の?\s*データベース.*$/,"").replace(/^\d+\s+/,"").split(" ")[0]}
+function cleanName(t){
+ // 「〇〇のデータベース」などのリンク用の文字を外す。全角・半角や長音記号の種類の違いもまとめて吸収する
+ let x=String(t||"").normalize("NFKC").replace(/[\u200B-\u200D\uFEFF\u00A0]/g," ");
+ x=cleanText(x).replace(/\s*の?\s*デ\s*[ーｰ－―‐\-−]?\s*タ\s*[ベヘ]\s*[ーｰ－―‐\-−]?\s*ス.*$/,"").replace(/\s*(の)?(詳細|成績|プロフィール).*$/,"").replace(/^\d+\s+/,"");
+ return x.split(" ")[0]||"";
+}
 function csvSafe(t){return String(t==null?"":t).replace(/[,\n\r]/g,"、").trim()}
 function parseShutuba(html){
  const doc=new DOMParser().parseFromString(String(html||""),"text/html");
  const q=sel=>{const el=doc.querySelector(sel);return el?cleanText(el.textContent):""};
- const d1=q(".RaceData01"),d2=q(".RaceData02"),all=d1+" "+d2+" "+cleanText(doc.title);
- const dm=all.match(/(芝|ダ|障)\s*(\d{3,4})\s*m?/),tm=all.match(/([0-2]?\d:[0-5]\d)\s*発走/),cm=all.match(/馬場\s*[:：]\s*(良|稍重|稍|重|不良|不)/),wm=all.match(/天候\s*[:：]\s*([^\s/]+)/);
+ const d1=q(".RaceData01"),d2=q(".RaceData02"),all=(d1+" "+d2+" "+cleanText(doc.title)).normalize("NFKC").replace(/(\d),(\d{3})/g,"$1$2");
+ const body=cleanText(doc.body?doc.body.textContent:"").normalize("NFKC").replace(/(\d),(\d{3})/g,"$1$2").slice(0,4000);
+ const dm=all.match(/(芝|ダ|障)\s*(\d{3,4})\s*m?/)||body.match(/(芝|ダ|障)\s*(\d{3,4})\s*m/),tm=all.match(/([0-2]?\d:[0-5]\d)\s*発走/),cm=all.match(/馬場\s*[:：]\s*(良|稍重|稍|重|不良|不)/)||body.match(/馬場\s*[:：]\s*(良|稍重|稍|重|不良|不)/),wm=all.match(/天候\s*[:：]\s*([^\s/]+)/);
  const race={name:q(".RaceName"),surf:dm?dm[1]:"",dist:dm?+dm[2]:0,time:tm?tm[1].padStart(5,"0"):"",cond:cm?COND_N(cm[1]):"",weather:wm?wm[1]:"",data:d1};
  const horses=[];
  const t=tableByHeaders(doc,["馬番","馬名"])[0];
@@ -1145,11 +1165,14 @@ function parseShutuba(html){
   let name="";links.forEach(x=>{[x.getAttribute("title"),x.textContent].forEach(v=>{const t=cleanName(v||"");if(t&&(!name||t.length<name.length))name=t})});
   if(!name)name=cleanName(pick(iName,".HorseName"));if(!name)return;
   const hid=a?((a.getAttribute("href")||"").match(/horse\/(\w+)/)||[])[1]||"":"";
-  const ja=tr.querySelector("a[href*='/jockey/']"),bw=pick(iB,"td.Weight").match(/(\d{3})\s*\(?([+-]?\d+|前計不|計不)?\)?/);
+  const rowText=spacedText(tr).normalize("NFKC");
+  const ja=tr.querySelector("a[href*='/jockey/'],a[href*='jockey_id']"),ta=tr.querySelector("a[href*='/trainer/'],a[href*='trainer_id']"),bw=pick(iB,"td.Weight").match(/(\d{3})\s*\(?([+-]?\d+|前計不|計不)?\)?/);
   horses.push({
    waku:parseInt(pick(iW,"td[class*='Waku']"),10)||0,no,name,horseId:hid,
-   sexAge:pick(iSA,"td.Barei"),kinryo:parseFloat(ct(iK))||parseFloat((tr.textContent.match(/\b(4\d|5\d|6\d)\.\d\b/)||[])[0])||0,
-   jockey:cleanText(ja?ja.textContent:ct(iJ)),trainer:pick(iT,"td.Trainer").replace(/^(美浦|栗東|美|栗)\s*/,""),
+   sexAge:(()=>{const v=pick(iSA,"td.Barei");if(/^(牡|牝|セ|騙)/.test(v))return v;const m=rowText.match(/(牡|牝|セ|騙)\s*(\d{1,2})/);return m?m[1]+m[2]:v})(),
+   kinryo:(()=>{const v=parseFloat(ct(iK));if(v>=40&&v<=70)return v;const jt=cleanText(ja?ja.parentElement.textContent:ct(iJ)).normalize("NFKC");const m=jt.match(/(4\d|5\d|6\d)(\.\d)?\s*$/)||rowText.match(/(?:^|\s)(4\d|5\d|6\d)\.\d(?=\s)/);return m?parseFloat(m[0]):0})(),
+   jockey:cleanText(ja?ja.textContent:ct(iJ)).normalize("NFKC").replace(/\s*\d{2}(\.\d)?\s*(kg)?\s*$/,"").replace(/^\s*\d{2}(\.\d)?\s+/,"").trim(),
+   trainer:cleanText(ta?ta.textContent:pick(iT,"td.Trainer")).replace(/^(美浦|栗東|美|栗|浦和|船橋|大井|川崎|園田|姫路|名古屋|笠松|金沢|高知|佐賀|門別|盛岡|水沢|帯広)\s*/,""),
    bodyWeight:bw?+bw[1]:0,bodyDiff:bw&&bw[2]&&/^[+-]?\d+$/.test(bw[2])?+bw[2]:null,
    odds:parseFloat((pick(iO,"td.Popular,td[class*='Odds']").match(/\d+\.\d/)||[])[0])||null,
    ninki:parseInt(pick(iP,"td[class*='Popular_Ninki'],td.Popular_Ninki"),10)||null,
@@ -1264,6 +1287,7 @@ async function fetchShutubaFor(race,quiet,force){
  if(!sh.horses.length){if(!quiet){$("shutubaStatus").textContent="出馬表を解析できませんでした（「最後のraw表示」で中身を確認できます）"}log("出馬表解析失敗 "+race.venue+race.raceNo);return false}
  let pastOk=false;
  try{const pm=parsePast(await fetchText(base+"/race/shutuba_past.html?race_id="+race.raceId));sh.horses.forEach(h=>{h.past=pm.get(h.no)||[]});pastOk=[...pm.values()].some(v=>v.length)}catch(e){}
+ if(!sh.race.dist){const m=String(race.cond||"").match(/(芝|ダ|障)\s*(\d{3,4})/);if(m){sh.race.surf=m[1];sh.race.dist=+m[2]}}
  sh.fetchedAt=nowStr();sh.pastOk=pastOk;s.shutuba=sh;
  const act=sh.horses.filter(h=>!h.scratched);
  const patch={heads:act.length+"頭"};
@@ -1288,7 +1312,7 @@ function renderShutuba(){
  const R=sh.race,heads=sh.horses.filter(h=>!h.scratched).length;
  $("shutubaStatus").textContent="取得 "+sh.fetchedAt+"｜"+heads+"頭"+(sh.pastOk?"・近5走あり":"・近走は取得できず（指数は出馬表のみで仮計算）")+(s.manualHorse?"｜出走馬データは手修正中（自動上書きしません）":"");
  analyzeShutuba(sh);
- box.innerHTML="<div class='note ok'><b>"+esc(R.name||(currentRace?currentRace.name:""))+"</b>　"+esc([R.surf+R.dist+"m",R.cond&&"馬場"+R.cond,R.weather&&"天候"+R.weather,sh.race.time&&sh.race.time+"発走"].filter(Boolean).join("・"))+"</div>"+
+ box.innerHTML="<div class='note ok'><b>"+esc(R.name||(currentRace?currentRace.name:""))+"</b>　"+esc([R.dist?R.surf+R.dist+"m":"距離未取得",R.cond&&"馬場"+R.cond,R.weather&&"天候"+R.weather,sh.race.time&&sh.race.time+"発走"].filter(Boolean).join("・"))+"</div>"+
  "<div class='scroll'><table><thead><tr><th>枠</th><th>馬番</th><th>馬名</th><th>性齢</th><th>斤量</th><th>騎手</th><th>厩舎</th><th>馬体重</th><th>単勝</th><th>人気</th><th>近5走</th><th>脚質</th><th>指数</th><th>短評</th></tr></thead><tbody>"+
  sh.horses.map(h=>{const g=h.gen||{};return"<tr"+(h.scratched?" class='past'":"")+"><td class='fr"+(h.waku||frameOf(h.no,heads))+"'>"+(h.waku||frameOf(h.no,heads))+"</td><td><b>"+h.no+"</b></td><td class='l nw'><b>"+esc(h.name)+"</b>"+(h.scratched?" <span class='buyTag skip'>取消・除外</span>":"")+"</td><td>"+esc(h.sexAge)+"</td><td>"+(h.kinryo||"-")+"</td><td class='nw'>"+esc(h.jockey)+"</td><td class='nw small'>"+esc(h.trainer)+"</td><td class='nw'>"+(h.bodyWeight?h.bodyWeight+(h.bodyDiff!=null?"("+(h.bodyDiff>0?"+":"")+h.bodyDiff+")":""):"-")+"</td><td>"+(h.odds||"-")+"</td><td>"+(h.ninki||"-")+"</td><td class='nw'>"+(h.past.length?h.past.map(r=>"<b style='color:"+(r.rank===1?"#c40000":r.rank<=3?"#174ea6":"#555")+"'>"+(r.rank||"×")+"</b>").join("-"):"-")+"</td><td>"+esc(g.style||"-")+"</td><td><b>"+(g.score!=null?g.score:"-")+"</b></td><td class='l small'>"+esc(g.memo||"")+"</td></tr>"}).join("")+"</tbody></table></div>";
 }
