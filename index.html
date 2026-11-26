@@ -109,7 +109,9 @@ tr.next td{background:#e8f7ed}
 <h2>時系列</h2>
 <div class="tsInfo" id="tsInfo">--</div>
 <div>
-<label class="inline" style="margin:0 8px 0 0"><input type="checkbox" id="tsSticky" checked>上部に固定</label>
+<label class="inline" style="margin:0 8px 0 0"><input type="checkbox" id="snapAuto" checked>15秒スナップ</label>
+<select id="snapTarget" style="width:auto;padding:5px;font-size:13px"><option value="both">表示中＋監視中</option><option value="current">表示中のみ</option></select>
+<label class="inline" style="margin:0 8px 0 8px"><input type="checkbox" id="tsSticky" checked>上部に固定</label>
 <button class="sm gray" id="btnTsMin">縮小</button>
 </div>
 </div>
@@ -129,6 +131,7 @@ tr.next td{background:#e8f7ed}
 <option value="prob">想定的中率%</option>
 </select></div>
 </div>
+<div id="snapStatus" class="small"></div>
 <canvas id="chart"></canvas>
 </section>
 
@@ -267,8 +270,8 @@ tr.next td{background:#e8f7ed}
 </div>
 <div id="oddsTypesBox"></div>
 <button class="blue" id="btnOdds">オッズ取得</button>
-<button class="green" id="btnOddsAuto">15秒自動オッズ</button>
-<button class="danger" id="btnOddsStop">停止</button>
+<button class="green" id="btnOddsAuto">15秒スナップON</button>
+<button class="danger" id="btnOddsStop">15秒スナップOFF</button>
 <button class="gold" id="btnEV">現在オッズでEV計算</button>
 <button class="gray" id="btnDemo">デモ用オッズ変動</button>
 <div id="oddsStatus" class="small"></div>
@@ -396,7 +399,8 @@ const DEFAULT_ODDS_TYPES=["win","place","wide","umaren","sanrenpuku"];
 let S={races:[],cache:{},raceStates:{},watchList:[],activeWatch:0,settlements:[],monthMarks:{},currentKey:null,
  buyLog:[],
  settings:{temp:8,evMin:1.15,unit:100,oddsTypes:DEFAULT_ODDS_TYPES.slice(),orderMode:"time",follow:true,org:"ALL",
-  autoBuy:{on:false,target:"watch",minutes:2,raceCap:3000,dayCap:20000},autoSettle:true,tsSticky:true}};
+  autoBuy:{on:false,target:"watch",minutes:2,raceCap:3000,dayCap:20000},autoSettle:true,tsSticky:true,snapAuto:true,snapTarget:"both"}};
+const SNAP_MEM=480,SNAP_SAVE=160;   // メモリ上は最大2時間分、保存は直近40分分
 const AB_DEFAULT={on:false,target:"watch",minutes:2,raceCap:3000,dayCap:20000};
 let currentRace=null,watchSwitchTimer=null,oddsTimer=null,resultTimer=null,countdownTimer=null;
 let lastRaw="",lastRawUrl="",bridgeDomOk=false,listRequest=0,oddsBusy=false,saveTimer=null;
@@ -458,11 +462,11 @@ function nextUpcoming(list){const n=Date.now();return byTime(list).find(r=>raceT
 function saveAppData(){clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,300)}
 function saveNow(){
  S.currentKey=raceKey(currentRace);
- const json=JSON.stringify(S);
+ const json=JSON.stringify(S,(k,v)=>k==="snapshots"&&Array.isArray(v)?v.slice(-SNAP_SAVE):v);
  try{localStorage.setItem(STORAGE_KEY,json);$("storageInfo").textContent="保存サイズ 約"+Math.round(json.length/1024)+"KB";}
  catch(e){
   log("保存容量超過のため古いデータを整理します");pruneStates(true);
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S))}catch(e2){log("保存失敗："+e2.message+"（JSONバックアップを推奨）")}
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S,(k,v)=>k==="snapshots"&&Array.isArray(v)?v.slice(-40):v))}catch(e2){log("保存失敗："+e2.message+"（JSONバックアップを推奨）")}
  }
 }
 function pruneStates(aggressive){
@@ -519,6 +523,8 @@ function init(){
  tickRaceClock();setInterval(tickRaceClock,1000);
  setInterval(autoBuyTick,10000);updateAutoBuyStatus();
  if(S.settings.autoSettle!==false)startAutoResult();
+ $("snapAuto").checked=S.settings.snapAuto!==false;$("snapTarget").value=S.settings.snapTarget||"both";
+ if($("snapAuto").checked)startSnapAuto();else updateSnapStatus("15秒スナップOFF");
  let rz=null;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{drawGraph();drawProfitChart();drawAggChart()},200)});
  fetchRaceList();
 }
@@ -555,6 +561,8 @@ function bindEvents(){
  on("unitInput","change",()=>{S.settings.unit=Math.max(100,Math.round((+$("unitInput").value||100)/100)*100);$("unitInput").value=S.settings.unit;recalcAndRender()});
  on("btnCalc","click",recalcAndRender);on("btnShutuba","click",fetchShutuba);on("btnScoreFromOdds","click",scoreFromOdds);
  on("btnOdds","click",()=>fetchOddsFor(currentRace,"オッズ取得"));
+ on("snapAuto","change",()=>{S.settings.snapAuto=$("snapAuto").checked;S.settings.snapAuto?startSnapAuto():stopSnapAuto();saveAppData()});
+ on("snapTarget","change",()=>{S.settings.snapTarget=$("snapTarget").value;saveAppData()});
  on("btnOddsAuto","click",startOddsAuto);on("btnOddsStop","click",stopOddsAuto);
  on("btnEV","click",()=>{recalcAndRender();addSnapshot(cur(),currentRace,"手動EV");renderCurrent()});
  on("btnDemo","click",()=>{const s=cur();s.oddsInput=randomizeOdds(s.oddsInput);$("oddsInput").value=s.oddsInput;computeState(s,currentRace);addSnapshot(s,currentRace,"デモ（乱数）");renderCurrent()});
@@ -1043,7 +1051,7 @@ function computeState(s,race){
  const heads=headsFor(s,race,horses);
  const model=buildModel(horses,heads,S.settings.temp);
  s.winRates={};s.placeRates={};s.virtual=0;s.items=[];s.tickets=[];
- if(!model)return s;
+ if(!model){s.items=parseOdds(s.oddsInput).map(o=>({...o,key:oddsKey(o.type,o.combo),probability:0,ev:0,stake:0}));return s}
  const hp=makeProb(model);
  horses.forEach(h=>{s.winRates[h.no]=model.p[h.no]||0;s.placeRates[h.no]=hp.place(h.no)});
  s.virtual=model.virtual;s.heads=model.heads;
@@ -1181,8 +1189,8 @@ function parseOddsHTML(html,type,heads){
 }
 function uniqueOdds(list){const m=new Map();list.forEach(o=>{if(NEED[o.type]&&o.combo&&isFinite(o.odds)&&o.odds>0)m.set(oddsKey(o.type,o.combo),o)});return[...m.values()]}
 
-async function fetchOddsFor(race,src){
- if(!race||!race.raceId){alert("race_idが必要です");return 0}
+async function fetchOddsFor(race,src,quiet){
+ if(!race||!race.raceId){if(!quiet)alert("race_idが必要です");return 0}
  const s=ensureState(race),heads=headsFor(s,race,parseHorses(s.horseInput));
  const types=S.settings.oddsTypes.length?S.settings.oddsTypes:DEFAULT_ODDS_TYPES;
  const base=race.org==="NAR"?"https://nar.netkeiba.com":"https://race.netkeiba.com";
@@ -1204,21 +1212,58 @@ async function fetchOddsFor(race,src){
   done.add(type);
  }
  all=uniqueOdds(all.filter(o=>types.includes(o.type)));
- if(!all.length){$("oddsStatus").textContent="オッズ未取得（既存の入力を維持）";log("オッズ未取得 "+race.venue+race.raceNo);return 0}
+ if(!all.length){$("oddsStatus").textContent="オッズ未取得（既存の入力を維持）";if(!quiet)log("オッズ未取得 "+race.venue+race.raceNo);return 0}
  s.oddsInput=all.map(o=>o.type+","+o.combo+","+o.odds).join("\n");
  computeState(s,race);addSnapshot(s,race,src||"オッズ取得");
- if(raceKey(race)===raceKey(currentRace))renderCurrent();
+ if(raceKey(race)===raceKey(currentRace))renderLive();
  renderWatchList();saveAppData();
  $("oddsStatus").textContent=race.venue+race.raceNo+" "+all.length+"件取得 "+nowStr();
- log("オッズ取得 "+race.venue+race.raceNo+" "+all.length+"件");
+ if(!quiet)log("オッズ取得 "+race.venue+race.raceNo+" "+all.length+"件");
  return all.length;
 }
-function startOddsAuto(){
- if(oddsTimer)return;
- const run=async()=>{if(oddsBusy||!currentRace)return;oddsBusy=true;try{await fetchOddsFor(currentRace,"自動オッズ")}finally{oddsBusy=false}};
- run();oddsTimer=setInterval(run,15000);log("15秒自動オッズ開始");
+function startOddsAuto(){$("snapAuto").checked=true;S.settings.snapAuto=true;startSnapAuto();saveAppData()}
+function stopOddsAuto(){$("snapAuto").checked=false;S.settings.snapAuto=false;stopSnapAuto();saveAppData()}
+
+/* ===== 15秒スナップ ===== */
+let snapTimer=null,snapBusy=false,snapStats={cycles:0,skips:0,last:""};
+function snapTargets(){
+ const m=new Map(),n=Date.now();
+ if(currentRace)m.set(raceKey(currentRace),currentRace);
+ if(S.settings.snapTarget!=="current")S.watchList.forEach((w,i)=>{const r=watchRaceObj(i);m.set(raceKey(r),r)});
+ return[...m.values()].filter(r=>{const t=raceTimestamp(r);return Number.isFinite(t)?t>n:raceKey(r)===raceKey(currentRace)}); // 発走したレースは止める
 }
-function stopOddsAuto(){if(oddsTimer){clearInterval(oddsTimer);oddsTimer=null;log("自動オッズ停止")}}
+async function snapCycle(){
+ if(snapBusy){snapStats.skips++;updateSnapStatus();return}   // 前回の取得が15秒で終わらなかった
+ snapBusy=true;const t0=Date.now();let ok=0,fail=0,manual=0;
+ try{
+  for(const r of snapTargets()){
+   const s=ensureState(r);
+   if(r.raceId){let n=0;try{n=await fetchOddsFor(r,"15秒スナップ",true)}catch(e){}n?ok++:fail++}
+   else if(s.oddsInput){computeState(s,r);addSnapshot(s,r,"15秒スナップ（手入力）");manual++;if(raceKey(r)===raceKey(currentRace))renderLive()}
+  }
+ }finally{
+  snapBusy=false;snapStats.cycles++;
+  snapStats.last=nowStr()+" 取得"+ok+"件"+(manual?"・手入力"+manual+"件":"")+(fail?"・失敗"+fail+"件":"")+"（"+((Date.now()-t0)/1000).toFixed(1)+"秒）";
+  updateSnapStatus();renderWatchList();saveAppData();
+ }
+}
+function startSnapAuto(){if(snapTimer)return;snapTimer=setInterval(snapCycle,15000);snapCycle();updateSnapStatus();log("15秒スナップ開始")}
+function stopSnapAuto(){if(snapTimer){clearInterval(snapTimer);snapTimer=null;log("15秒スナップ停止")}updateSnapStatus("15秒スナップOFF")}
+function updateSnapStatus(msg){
+ const el=$("snapStatus");if(!el)return;
+ if(msg||!snapTimer){el.textContent=msg||"15秒スナップOFF";return}
+ const tg=snapTargets();
+ el.textContent="15秒スナップON｜対象 "+(tg.length?tg.map(r=>r.venue+r.raceNo).join("・"):"なし（発走前のレースがありません）")+"｜"+(snapStats.last||"初回取得中…")+(snapStats.skips?"｜処理が間に合わずスキップ "+snapStats.skips+"回":"");
+}
+/* 入力中の欄を書き換えずに、スナップ関連の表示だけ更新する */
+function renderLive(){
+ const s=cur(),a=document.activeElement;
+ if(a!==$("oddsInput"))$("oddsInput").value=s.oddsInput||"";
+ const sel=$("graphTicket").value;
+ renderTickets();renderSnapshots();updateGraphTickets();
+ if([...$("graphTicket").options].some(o=>o.value===sel))$("graphTicket").value=sel;
+ drawGraph();updateTsInfo();
+}
 function randomizeOdds(text){return parseOdds(text).map(o=>o.type+","+o.combo+","+Math.max(1.1,o.odds*(0.88+Math.random()*0.24)).toFixed(1)).join("\n")}
 
 /* ===== スナップショット・グラフ ===== */
@@ -1226,10 +1271,10 @@ function addSnapshot(s,race,src){
  if(!s.items.length)return;
  const t=raceTimestamp(race);let remain="--";
  if(Number.isFinite(t)){const d=Math.floor((t-Date.now())/60000);remain=d>=0?d+"分前":"発走済"}
- const topEv=[...s.items].sort((a,b)=>b.ev-a.ev).slice(0,30),keep=new Map();
- s.items.filter(i=>i.stake>0).concat(topEv).forEach(i=>keep.set(i.key,{key:i.key,type:i.type,combo:i.combo,odds:i.odds,probability:i.probability,ev:i.ev,stake:i.stake}));
+ const topEv=[...s.items].sort((a,b)=>b.ev-a.ev).slice(0,15),keep=new Map();
+ s.items.filter(i=>i.stake>0||i.type==="win").concat(topEv).forEach(i=>keep.set(i.key,{key:i.key,type:i.type,combo:i.combo,odds:i.odds,probability:i.probability,ev:i.ev,stake:i.stake}));
  s.snapshots.push({no:(s.snapshots.length?s.snapshots[s.snapshots.length-1].no:0)+1,time:nowStr(),remain,source:src,count:s.items.length,items:[...keep.values()]});
- if(s.snapshots.length>120)s.snapshots=s.snapshots.slice(-120);
+ if(s.snapshots.length>SNAP_MEM)s.snapshots=s.snapshots.slice(-SNAP_MEM);
 }
 function renderSnapshots(){
  const s=cur();
@@ -1260,7 +1305,8 @@ function drawGraph(){
  const metric=$("graphMetric").value,mode=$("graphMode").value,last=snaps[snaps.length-1];
  let targets=[];
  if(mode==="single"){const k=$("graphTicket").value;const f=allGraphKeys(s).find(i=>i.key===k);if(f)targets=[f]}
- else targets=[...last.items].filter(i=>i.stake>0).sort((a,b)=>b.stake-a.stake||b.ev-a.ev).slice(0,mode==="top5"?5:mode==="top10"?10:20);
+ else{const lim=mode==="top5"?5:mode==="top10"?10:20;targets=[...last.items].filter(i=>i.stake>0).sort((a,b)=>b.stake-a.stake||b.ev-a.ev).slice(0,lim);
+  if(!targets.length)targets=[...last.items].filter(i=>i.type==="win").sort((a,b)=>a.odds-b.odds).slice(0,lim);} // 買い目がなければ単勝人気上位の推移
  const left=78,right=c.width-36,top=38,bottom=c.height-82;
  if(!targets.length){drawAxes(ctx,{min:0,max:1,step:0.2,left,right,top,bottom,ml:metricLabel(metric),snaps});ctx.fillStyle="#555";ctx.font="22px sans-serif";ctx.textAlign="center";ctx.fillText("金額が付いた買い目がまだありません",c.width/2,c.height/2);ctx.textAlign="left";return}
  const series=targets.map(t=>({label:label(t.type)+" "+t.combo,pts:snaps.map((x,i)=>{const it=x.items.find(z=>z.key===t.key);if(!it)return null;return{idx:i,value:metric==="ev"?it.ev:metric==="odds"?it.odds:it.probability*100}}).filter(Boolean)})).filter(x=>x.pts.length);
