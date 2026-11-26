@@ -37,7 +37,17 @@ td.l{text-align:left}td.nw{white-space:nowrap}
 .day{min-height:70px;border:1px solid #ccc;border-radius:10px;background:#fff;padding:6px;cursor:pointer}
 .day .d{font-weight:900}.day.today{background:#fff8d7;border-color:#b8860b}.day.selected{background:#e8f2ff;border:3px solid #174ea6}
 .day.empty{background:transparent;border:0;cursor:default}.day .mini{font-size:11px;color:#006837;font-weight:700;margin-top:4px}
-canvas{width:100%;height:auto;aspect-ratio:1280/470;background:#fff;border:1px solid #ccc;border-radius:12px;margin-top:12px}
+canvas{display:block;width:100%;height:34vh;min-height:220px;background:#fff;border:1px solid #ccc;border-radius:12px;margin-top:8px}
+.tsPanel{padding:10px 14px;margin:0 0 14px}
+.tsPanel.sticky{position:sticky;top:0;z-index:50;box-shadow:0 6px 18px #0004}
+.tsPanel.min canvas,.tsPanel.min .graphPanel{display:none}
+.tsHead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between}
+.tsHead h2{margin:0;font-size:18px;border-left:6px solid #b8860b;padding-left:10px}
+.tsInfo{font-weight:800;font-size:15px}
+.tsPanel .graphPanel label{margin:4px 0 2px;font-size:12px}
+.tsPanel .graphPanel select{padding:5px;font-size:14px}
+.buyTag{display:inline-block;background:#9b1c1c;color:#fff;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800}
+.buyTag.skip{background:#777}
 .graphPanel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .paper{background:#fffaf0;border:1px solid #d8bc78;border-radius:12px;padding:14px;line-height:1.75}
 .paper h3{border-bottom:2px solid #b8860b;padding-bottom:4px;margin-top:18px}
@@ -59,6 +69,34 @@ tr.next td{background:#e8f7ed}
 </header>
 
 <main class="container">
+
+<section id="tsPanel" class="card tsPanel sticky">
+<div class="tsHead">
+<h2>時系列</h2>
+<div class="tsInfo" id="tsInfo">--</div>
+<div>
+<label class="inline" style="margin:0 8px 0 0"><input type="checkbox" id="tsSticky" checked>上部に固定</label>
+<button class="sm gray" id="btnTsMin">縮小</button>
+</div>
+</div>
+<div class="graphPanel">
+<div><label>グラフ表示</label>
+<select id="graphMode">
+<option value="top5">買い目上位5点</option>
+<option value="top10">買い目上位10点</option>
+<option value="top20">買い目上位20点</option>
+<option value="single">個別選択</option>
+</select></div>
+<div><label>個別買い目</label><select id="graphTicket"></select></div>
+<div><label>表示指標</label>
+<select id="graphMetric">
+<option value="ev">EV</option>
+<option value="odds">オッズ</option>
+<option value="prob">想定的中率%</option>
+</select></div>
+</div>
+<canvas id="chart"></canvas>
+</section>
 
 <section class="summary">
 <div class="box">選択日<strong id="summaryDate">--</strong></div>
@@ -152,6 +190,25 @@ tr.next td{background:#e8f7ed}
 <div id="watchListBox" class="scroll"></div>
 </div>
 
+<div class="card full">
+<h2>自動購入（仮想）</h2>
+<div class="note">発走の指定分前になると最新オッズを取得してEVを計算し、その時点の買い目を<b>購入確定</b>として固定します。確定後にオッズが動いても買い目は変わりません。結果が出ると自動で精算し、仮想収支に記録します。<b>実際の馬券は購入しません。</b></div>
+<div class="row">
+<div><label class="inline" style="margin-top:28px"><input type="checkbox" id="abOn">自動購入ON</label></div>
+<div><label>対象</label><select id="abTarget"><option value="watch">監視中レース</option><option value="day">選択日の全レース</option></select></div>
+<div><label>発走何分前に確定</label><input id="abMinutes" type="number" min="1" max="30" value="2"></div>
+<div><label>1レース上限（円）</label><input id="abRaceCap" type="number" step="100" value="3000"></div>
+<div><label>1日上限（円）</label><input id="abDayCap" type="number" step="100" value="20000"></div>
+</div>
+<button class="gold" id="btnBuyNow">表示中レースを今すぐ仮想購入</button>
+<button class="danger" id="btnBuyCancel">表示中レースの購入を取消</button>
+<div id="autoBuyStatus" class="note ok">自動購入OFF</div>
+<div class="scroll"><table>
+<thead><tr><th>確定時刻</th><th>日付</th><th>レース</th><th>点数</th><th>金額</th><th>内容</th><th>状態</th></tr></thead>
+<tbody id="buyLogTable"></tbody>
+</table></div>
+</div>
+
 <div class="card">
 <h2>出走馬・スコア</h2>
 <p class="small">形式：馬番,馬名,スコア,脚質,短評,距離適性,馬場適性,過去走メモ<br>入力しない出走馬は「最低スコア−5」として自動補完します（勝率の過大評価を防ぐため）。</p>
@@ -193,31 +250,11 @@ tr.next td{background:#e8f7ed}
 
 <div class="card">
 <h2>買い目・金額</h2>
+<div id="ticketStatus"></div>
 <div class="scroll"><table>
 <thead><tr><th>券種</th><th>組み合わせ</th><th>的中率</th><th>オッズ</th><th>EV</th><th>金額</th></tr></thead>
 <tbody id="ticketTable"></tbody>
 </table></div>
-</div>
-
-<div class="card full">
-<h2>時系列グラフ</h2>
-<div class="graphPanel">
-<div><label>グラフ表示</label>
-<select id="graphMode">
-<option value="top5">買い目上位5点</option>
-<option value="top10">買い目上位10点</option>
-<option value="top20">買い目上位20点</option>
-<option value="single">個別選択</option>
-</select></div>
-<div><label>個別買い目</label><select id="graphTicket"></select></div>
-<div><label>表示指標</label>
-<select id="graphMetric">
-<option value="ev">EV</option>
-<option value="odds">オッズ</option>
-<option value="prob">想定的中率%</option>
-</select></div>
-</div>
-<canvas id="chart" width="1280" height="470"></canvas>
 </div>
 
 <div class="card full">
