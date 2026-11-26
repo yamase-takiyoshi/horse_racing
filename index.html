@@ -134,7 +134,7 @@ canvas{width:100%;height:430px;background:#fff;border:1px solid #ccc;border-radi
 </div>
 
 <div class="card full">
-<h2>開催レース一覧：発走時刻順</h2>
+<h2>開催レース一覧：現在時刻から直近順</h2>
 <div class="note ok">
 ここは<strong>開催場を混ぜて、選択日の全レースを発走時刻順</strong>に並べます。締切前EV監視向きの番組表です。
 </div>
@@ -316,12 +316,14 @@ function init(){
  renderCalendar();
  calcWinRates(false);
  renderWatchList();
- renderGraphEmpty();
+ if(!snapshots.length)renderGraphEmpty();
+ if(races.length)selectNearestRace();
+ tickRaceClock();setInterval(tickRaceClock,1000);
 }
 window.onload=init;
 
 function pad(n){return String(n).padStart(2,"0")}
-function toDateStr(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function toDateStr(d){return new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).format(d)}
 function ymd(d){return d.replaceAll("-","")}
 function yen(n){return Number(n||0).toLocaleString()+"円"}
 function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
@@ -639,21 +641,23 @@ function renderVenueOptions(){
 function renderRaceSelect(){
  const v=venueSelect.value;
  raceSelect.innerHTML="";
- sortByCalendarDayTimeOrder(races).filter(r=>v==="ALL"||r.venue===v).forEach(r=>{
+ clockOrdered(races).filter(r=>v==="ALL"||r.venue===v).forEach(r=>{
   const o=document.createElement("option");
   o.value=r.key;o.textContent=r.time+" "+r.venue+" "+r.raceNo+" "+r.name;
   raceSelect.appendChild(o);
  });
 }
 
+function raceTimestamp(r){if(!r||!/^\d{1,2}:\d{2}$/.test(r.time)||r.time==="00:00")return NaN;return Date.parse(r.date+"T"+r.time.padStart(5,"0")+":00+09:00")}
+function clockOrdered(list){const n=Date.now();return sortByCalendarDayTimeOrder(list).sort((a,b)=>{const x=raceTimestamp(a),y=raceTimestamp(b);const group=t=>!Number.isFinite(t)?2:t>=n?0:1;return group(x)-group(y)||(group(x)===1?y-x:x-y)||0})}
 function selectNearestRace(){
- if(!races.length)return;
- const nowD=new Date();
- const future=races.map(r=>({...r,dt:new Date(r.date+"T"+r.time)})).filter(r=>r.dt>=nowD).sort((a,b)=>a.dt-b.dt);
- activateRace(future[0]||races[0]);
- venueSelect.value="ALL";renderRaceSelect();raceSelect.value=currentRace.key;applyCurrentRace();
+ const ordered=clockOrdered(races);if(!ordered.length)return;
+ venueSelect.value="ALL";activateRace(ordered[0]);renderRaceSelect();raceSelect.value=currentRace.key;renderRaceOrder();
 }
-
+function stepDayRace(delta){const ordered=clockOrdered(races);const i=ordered.findIndex(r=>currentRace&&raceKey(r)===raceKey(currentRace));const r=ordered[Math.max(0,Math.min(ordered.length-1,i+delta))];if(r)selectRaceFromOrder(races.indexOf(r))}
+function fillUpcomingWatch(){const ordered=clockOrdered(races).filter(r=>Number.isFinite(raceTimestamp(r))&&raceTimestamp(r)>=Date.now());if(!ordered.length){alert("未発走予定レースがありません");return}if(watchList.length&&!confirm("監視リストを直近8レースに入れ替えますか？保存済みデータは保持します。"))return;stopWatchAutoSwitch();saveActiveRaceState();watchList=ordered.slice(0,8);watchList.forEach(initRaceState);switchWatchRace(0);renderRaceOrder()}
+let lastClockOrder="";
+function tickRaceClock(){jstClock.textContent="日本時間 "+new Date().toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",hour12:false})+" ／ 未発走予定を優先";const ordered=clockOrdered(races),signature=ordered.map(r=>raceKey(r)).join("|");if(signature!==lastClockOrder){lastClockOrder=signature;const selected=raceSelect.value;renderRaceSelect();if([...raceSelect.options].some(o=>o.value===selected))raceSelect.value=selected;renderRaceOrder();if(followClock.checked&&watchSwitchMode!=="auto"&&ordered.some(r=>raceTimestamp(r)>=Date.now())){selectNearestRace();saveAppData()}}}
 function selectRaceByDropdown(){
  const r=races.find(r=>r.key===raceSelect.value);
  if(r)activateRace(r);
@@ -671,11 +675,11 @@ function applyCurrentRace(){
 }
 
 function renderRaceOrder(){
- const ordered=sortByCalendarDayTimeOrder(races);
+ const ordered=clockOrdered(races);
  raceOrderBox.innerHTML="<table><thead><tr><th>順</th><th>発走</th><th>主催</th><th>場</th><th>R</th><th>競走名</th><th>条件</th><th>race_id</th><th>監視</th><th>選択</th></tr></thead><tbody>"+
  ordered.map((r,i)=>{
   const realIndex=races.findIndex(x=>raceKey(x)===raceKey(r));
-  return "<tr><td>"+(i+1)+"</td><td><b>"+esc(r.time)+"</b></td><td><span class='badge "+(r.org==="JRA"?"jra":"nar")+"'>"+r.org+"</span></td><td>"+esc(r.venue)+"</td><td>"+esc(r.raceNo)+"</td><td>"+esc(r.name)+"</td><td>"+esc((r.cond||"")+" "+(r.heads||""))+"</td><td>"+(r.raceId||"未取得")+"</td><td><button class='green' onclick='addToWatchList(races["+realIndex+"])'>監視</button></td><td><button onclick='selectRaceFromOrder("+realIndex+")'>選択</button></td></tr>";
+  return "<tr><td>"+(i+1)+"</td><td><b>"+esc(r.time)+"</b><br><small>"+(!Number.isFinite(raceTimestamp(r))?"時刻未取得":raceTimestamp(r)<Date.now()?"予定時刻経過":"未発走予定")+"</small></td><td><span class='badge "+(r.org==="JRA"?"jra":"nar")+"'>"+r.org+"</span></td><td>"+esc(r.venue)+"</td><td>"+esc(r.raceNo)+"</td><td>"+esc(r.name)+"</td><td>"+esc((r.cond||"")+" "+(r.heads||""))+"</td><td>"+(r.raceId||"未取得")+"</td><td><button class='green' onclick='addToWatchList(races["+realIndex+"])'>監視</button></td><td><button onclick='selectRaceFromOrder("+realIndex+")'>選択</button></td></tr>";
  }).join("")+"</tbody></table>";
 }
 
@@ -687,7 +691,8 @@ function startCountdown(){
  if(countdownTimer)clearInterval(countdownTimer);
  countdownTimer=setInterval(()=>{
   if(!currentRace){countdown.textContent="--:--";return}
-  const diff=new Date(currentRace.date+"T"+currentRace.time)-new Date();
+  const diff=raceTimestamp(currentRace)-Date.now();
+  if(!Number.isFinite(diff)){countdown.textContent="時刻未取得";return}
   if(diff<=0){countdown.textContent="発走済";return}
   const m=Math.floor(diff/60000),s=Math.floor(diff/1000%60);
   countdown.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
@@ -740,6 +745,7 @@ function switchWatchRace(index,doSave=true){
  saveActiveRaceState();
  activeWatchIndex=index;
  const race=watchList[index],key=raceKey(race);initRaceState(race);
+ if(race.date===raceDate.value){venueSelect.value="ALL";renderRaceSelect();raceSelect.value=key;}
  currentRace=race;
  const st=raceStates[key];
  horseInput.value=st.horseInput||"";horses=st.horses||[];winRates=st.winRates||{};renderWinRates();
@@ -762,6 +768,7 @@ function nextWatchRace(){if(!watchList.length)return;let n=activeWatchIndex+1;if
 function prevWatchRace(){if(!watchList.length)return;let n=activeWatchIndex-1;if(n<0)n=watchList.length-1;switchWatchRace(n)}
 
 function startWatchAutoSwitch(){
+ followClock.checked=false;
  if(watchSwitchTimer)clearInterval(watchSwitchTimer);
  watchSwitchMode="auto";watchSwitchTimer=setInterval(()=>nextWatchRace(),10000);renderWatchList();saveAppData();
 }
