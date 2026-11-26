@@ -246,6 +246,17 @@ tr.next td{background:#e8f7ed}
 </table></div>
 </div>
 
+<div class="card full">
+<h2>出馬表</h2>
+<button class="green" id="btnShutuba">出馬表を取得（再取得）</button>
+<button class="gold" id="btnShutubaRegen">出馬表から全データを再生成（手修正を上書き）</button>
+<label class="inline"><input type="checkbox" id="autoShutuba" checked>レース選択時に自動取得</label>
+<div class="row"><div><label>指数への市場オッズ反映率（%）</label><input id="marketBlend" type="number" min="0" max="100" step="10" value="30"></div><div></div></div>
+<div id="shutubaStatus" class="small"></div>
+<div id="shutubaBox"></div>
+<p class="small">出馬表（枠・馬番・馬名・性齢・斤量・騎手・厩舎・馬体重・オッズ）と近5走（着順・頭数・人気・通過順・上がり・距離・馬場）から、指数・脚質・距離適性・馬場適性・近走メモ・短評を自動で作り、下の「出走馬・スコア」に入れます。手で直した内容は自動では上書きしません。</p>
+</div>
+
 <div class="card">
 <h2>出走馬・スコア</h2>
 <p class="small">形式：馬番,馬名,スコア,脚質,短評,距離適性,馬場適性,過去走メモ<br>入力しない出走馬は「最低スコア−5」として自動補完します（勝率の過大評価を防ぐため）。</p>
@@ -255,7 +266,6 @@ tr.next td{background:#e8f7ed}
 <div><label>温度（小さいほど本命寄り）</label><input id="tempInput" type="number" step="0.5" min="1" value="8"></div>
 </div>
 <button class="blue" id="btnCalc">想定勝率を計算</button>
-<button class="green" id="btnShutuba">出馬表から馬名取得</button>
 <button class="gray" id="btnScoreFromOdds">単勝オッズからスコア生成</button>
 <div id="horseWarn"></div>
 </div>
@@ -512,6 +522,7 @@ function init(){
  const ab=S.settings.autoBuy;
  $("abOn").checked=ab.on;$("abTarget").value=ab.target;$("abMinutes").value=ab.minutes;$("abRaceCap").value=ab.raceCap;$("abDayCap").value=ab.dayCap;
  $("autoSettle").checked=S.settings.autoSettle!==false;
+ $("autoShutuba").checked=S.settings.autoShutuba!==false;$("marketBlend").value=S.settings.marketBlend==null?30:S.settings.marketBlend;
  $("tsShow").checked=S.settings.tsShow!==false;document.body.classList.toggle("tsHidden",S.settings.tsShow===false);
  $("tsSticky").checked=S.settings.tsSticky!==false;$("tsPanel").classList.toggle("sticky",$("tsSticky").checked);
  renderOddsTypes();bindEvents();detectBridge();
@@ -553,13 +564,16 @@ function bindEvents(){
  on("btnWatchPrev","click",prevWatchRace);on("btnWatchNext","click",nextWatchRace);
  on("btnAutoOn","click",startWatchAutoSwitch);on("btnAutoOff","click",stopWatchAutoSwitch);
  on("btnSnapAll","click",takeAllWatchSnapshots);
- on("horseInput","input",()=>{cur().horseInput=$("horseInput").value;saveAppData()});
+ on("horseInput","input",()=>{const s=cur();s.horseInput=$("horseInput").value;s.manualHorse=true;saveAppData()});
  on("headsInput","change",()=>{cur().headsOverride=$("headsInput").value;recalcAndRender()});
  on("oddsInput","input",()=>{cur().oddsInput=$("oddsInput").value;saveAppData()});
  on("tempInput","change",()=>{S.settings.temp=Math.max(1,+$("tempInput").value||8);recalcAndRender()});
  on("evMinInput","change",()=>{S.settings.evMin=+$("evMinInput").value||1.15;recalcAndRender()});
  on("unitInput","change",()=>{S.settings.unit=Math.max(100,Math.round((+$("unitInput").value||100)/100)*100);$("unitInput").value=S.settings.unit;recalcAndRender()});
- on("btnCalc","click",recalcAndRender);on("btnShutuba","click",fetchShutuba);on("btnScoreFromOdds","click",scoreFromOdds);
+ on("btnCalc","click",recalcAndRender);on("btnShutuba","click",()=>fetchShutubaFor(currentRace,false,false).catch(e=>{$("shutubaStatus").textContent="出馬表の取得に失敗："+e.message}));
+ on("btnShutubaRegen","click",()=>{const s=cur();if(!s.shutuba)return fetchShutubaFor(currentRace,false,true).catch(e=>alert("取得失敗："+e.message));if(s.manualHorse&&!confirm("手で直した出走馬データを出馬表からの生成データで上書きしますか？"))return;s.horseInput=shutubaToHorseInput(s.shutuba);s.manualHorse=false;computeState(s,currentRace);renderCurrent();saveAppData()});
+ on("autoShutuba","change",()=>{S.settings.autoShutuba=$("autoShutuba").checked;saveAppData()});
+ on("marketBlend","change",()=>{S.settings.marketBlend=Math.max(0,Math.min(100,+$("marketBlend").value||0));const s=cur();if(s.shutuba&&!s.manualHorse){s.horseInput=shutubaToHorseInput(s.shutuba);computeState(s,currentRace);renderCurrent()}saveAppData()});on("btnScoreFromOdds","click",scoreFromOdds);
  on("btnOdds","click",()=>fetchOddsFor(currentRace,"オッズ取得"));
  on("snapAuto","change",()=>{S.settings.snapAuto=$("snapAuto").checked;S.settings.snapAuto?startSnapAuto():stopSnapAuto();saveAppData()});
  on("snapTarget","change",()=>{S.settings.snapTarget=$("snapTarget").value;saveAppData()});
@@ -826,6 +840,8 @@ function activateRace(r){
  const wi=S.watchList.findIndex(x=>raceKey(x)===k);if(wi>=0)S.activeWatch=wi;
  if(r.date===$("raceDate").value){if($("venueSelect").value!=="ALL"&&$("venueSelect").value!==r.venue)$("venueSelect").value="ALL";renderRaceSelect();$("raceSelect").value=k;}
  renderCurrent();renderRaceOrder();renderWatchList();
+ const s=ensureState(r);
+ if(r.raceId&&!s.shutuba&&!s.shutubaTried&&S.settings.autoShutuba!==false){s.shutubaTried=true;fetchShutubaFor(r,true,false).catch(e=>log("出馬表自動取得失敗 "+r.venue+r.raceNo+"："+e.message))}
 }
 function renderCurrent(){
  const s=cur(),r=currentRace;
@@ -842,7 +858,7 @@ function renderCurrent(){
  drawGraph();generateNewspaper(false);
  $("review").style.display=s.review?"block":"none";$("review").innerHTML=s.review||"";
  $("resultBox").innerHTML=s.resultOrder?"着順："+esc(s.resultOrder)+(s.settled?"（精算済）":""):"まだ結果はありません。";
- startCountdown();
+ startCountdown();renderShutuba();
 }
 function recalcAndRender(){const s=cur();s.horseInput=$("horseInput").value;s.oddsInput=$("oddsInput").value;computeState(s,currentRace);renderCurrent();saveAppData()}
 
@@ -1093,30 +1109,172 @@ function tableByHeaders(doc,required){
  }
  return out;
 }
-async function fetchShutuba(){
- if(!currentRace||!currentRace.raceId)return alert("race_idが必要です");
- const race=currentRace,url=(race.org==="NAR"?"https://nar.netkeiba.com":"https://race.netkeiba.com")+"/race/shutuba.html?race_id="+race.raceId;
- try{
-  const doc=new DOMParser().parseFromString(await fetchText(url),"text/html");
-  const got=[];
-  const t=tableByHeaders(doc,["馬番","馬名"])[0];
-  if(t){
-   const iNo=t.col("馬番"),iName=t.col("馬名");
-   t.rows.forEach(tr=>{
-    const cells=[...tr.children];if(cells.length<=Math.max(iNo,iName))return;
-    const no=parseInt(cleanText(cells[iNo].textContent),10);
-    const a=cells[iName].querySelector("a[href*='/horse/']");
-    const name=cleanText(a?a.textContent:cells[iName].textContent).split(" ")[0];
-    if(no>=1&&no<=18&&name&&!/取消|除外/.test(tr.textContent))got.push({no,name});
-   });
+/* ===== 出馬表の取得・解析・データ生成 ===== */
+const COND_N=c=>!c?"":/不/.test(c)?"不良":/稍/.test(c)?"稍重":/重/.test(c)?"重":/良/.test(c)?"良":"";
+function csvSafe(t){return String(t==null?"":t).replace(/[,\n\r]/g,"、").trim()}
+function parseShutuba(html){
+ const doc=new DOMParser().parseFromString(String(html||""),"text/html");
+ const q=sel=>{const el=doc.querySelector(sel);return el?cleanText(el.textContent):""};
+ const d1=q(".RaceData01"),d2=q(".RaceData02"),all=d1+" "+d2+" "+cleanText(doc.title);
+ const dm=all.match(/(芝|ダ|障)\s*(\d{3,4})\s*m?/),tm=all.match(/([0-2]?\d:[0-5]\d)\s*発走/),cm=all.match(/馬場\s*[:：]\s*(良|稍重|稍|重|不良|不)/),wm=all.match(/天候\s*[:：]\s*([^\s/]+)/);
+ const race={name:q(".RaceName"),surf:dm?dm[1]:"",dist:dm?+dm[2]:0,time:tm?tm[1].padStart(5,"0"):"",cond:cm?COND_N(cm[1]):"",weather:wm?wm[1]:"",data:d1};
+ const horses=[];
+ const t=tableByHeaders(doc,["馬番","馬名"])[0];
+ const rows=t?t.rows:[...doc.querySelectorAll("tr.HorseList")];
+ const col=h=>t?t.col(h):-1;
+ const iW=col("枠"),iN=col("馬番"),iName=col("馬名"),iSA=col("性齢"),iK=col("斤量"),iJ=col("騎手"),iT=col("厩舎"),iB=col("馬体重"),iO=col("オッズ")>=0?col("オッズ"):col("単勝"),iP=col("人気");
+ rows.forEach(tr=>{
+  const cells=[...tr.children],ct=i=>i>=0&&cells[i]?cleanText(cells[i].textContent):"";
+  const pick=(i,sel)=>ct(i)||(tr.querySelector(sel)?cleanText(tr.querySelector(sel).textContent):"");
+  const no=parseInt(pick(iN,"td[class*='Umaban']"),10);if(!(no>=1&&no<=18))return;
+  const a=tr.querySelector("a[href*='/horse/']");
+  const name=cleanText(a?a.textContent:pick(iName,".HorseName")).split(" ")[0];if(!name)return;
+  const hid=a?((a.getAttribute("href")||"").match(/horse\/(\w+)/)||[])[1]||"":"";
+  const ja=tr.querySelector("a[href*='/jockey/']"),bw=pick(iB,"td.Weight").match(/(\d{3})\s*\(?([+-]?\d+|前計不|計不)?\)?/);
+  horses.push({
+   waku:parseInt(pick(iW,"td[class*='Waku']"),10)||0,no,name,horseId:hid,
+   sexAge:pick(iSA,"td.Barei"),kinryo:parseFloat(ct(iK))||parseFloat((tr.textContent.match(/\b(4\d|5\d|6\d)\.\d\b/)||[])[0])||0,
+   jockey:cleanText(ja?ja.textContent:ct(iJ)),trainer:pick(iT,"td.Trainer").replace(/^(美浦|栗東|美|栗)\s*/,""),
+   bodyWeight:bw?+bw[1]:0,bodyDiff:bw&&bw[2]&&/^[+-]?\d+$/.test(bw[2])?+bw[2]:null,
+   odds:parseFloat((pick(iO,"td.Popular,td[class*='Odds']").match(/\d+\.\d/)||[])[0])||null,
+   ninki:parseInt(pick(iP,"td[class*='Popular_Ninki'],td.Popular_Ninki"),10)||null,
+   scratched:/取消|除外|中止/.test(tr.textContent)||/Cancel/i.test(tr.className),past:[]
+  });
+ });
+ return{race,horses};
+}
+function spacedText(el){const out=[],w=el.ownerDocument.createTreeWalker(el,4);let n;while((n=w.nextNode()))out.push(n.textContent);return cleanText(out.join(" "))}
+function parseRunCell(td){
+ const t=spacedText(td);if(!t||t.length<6)return null;
+ const dt=t.match(/(\d{4})[./年](\d{1,2})[./月](\d{1,2})/);
+ const ds=t.match(/(芝|ダ|障)\s*(\d{3,4})/);if(!ds&&!dt)return null;
+ const after=ds?t.slice(t.indexOf(ds[0])):t;
+ const cm=after.match(/(不良|稍重|良|稍|重|不)(?![賞])/);
+ const numEl=td.querySelector(".Num,[class*='Rank'],.Ranking");
+ let rank=numEl?parseInt(cleanText(numEl.textContent),10):NaN;
+ if(!(rank>0)){const m=t.match(/(\d{1,2})\s*着/);rank=m?+m[1]:NaN}
+ if(!(rank>0)){const m=t.match(/^(?:\d{4}[./]\d{1,2}[./]\d{1,2}\s*\S*\s*)?(\d{1,2})\s/);rank=m?+m[1]:NaN}
+ const hm=t.match(/(\d{1,2})\s*頭/),nm=t.match(/(\d{1,2})\s*人/),pm=t.match(/(?:^|\s)(\d{1,2}(?:-\d{1,2}){1,3})(?=\s|$|\()/),am=t.match(/\((\d{2}\.\d)\)/)||t.match(/(?:上り?|3F)\s*(\d{2}\.\d)/),tm=t.match(/(\d:\d{2}\.\d)/);
+ return{date:dt?dt[1]+"-"+pad(+dt[2])+"-"+pad(+dt[3]):"",venue:nearestVenue(t),surf:ds?ds[1]:"",dist:ds?+ds[2]:0,cond:COND_N(cm&&cm[1]),
+  rank:rank>0&&rank<=18?rank:null,heads:hm?+hm[1]:null,ninki:nm?+nm[1]:null,pass:pm?pm[1]:"",agari:am?+am[1]:null,time:tm?tm[1]:"",stopped:/中止|取消|除外/.test(t)};
+}
+function parsePast(html){
+ const doc=new DOMParser().parseFromString(String(html||""),"text/html"),map=new Map();
+ const t=tableByHeaders(doc,["馬番","馬名"])[0];
+ const rows=t?t.rows:[...doc.querySelectorAll("tr")].filter(tr=>tr.querySelector("a[href*='/horse/']"));
+ rows.forEach(tr=>{
+  const cells=[...tr.children];
+  let no=t&&t.col("馬番")>=0&&cells[t.col("馬番")]?parseInt(cleanText(cells[t.col("馬番")].textContent),10):NaN;
+  if(!(no>0)){const u=tr.querySelector("td[class*='Umaban']");no=u?parseInt(cleanText(u.textContent),10):NaN}
+  if(!(no>=1&&no<=18))return;
+  let pc=[...tr.querySelectorAll("td[class*='Past']")];
+  if(!pc.length&&t){const idx=t.names.map((n,i)=>/走/.test(n)?i:-1).filter(i=>i>=0);pc=idx.map(i=>cells[i]).filter(Boolean)}
+  map.set(no,pc.map(parseRunCell).filter(Boolean).slice(0,5));
+ });
+ return map;
+}
+function perfOf(r){if(!r||!r.rank)return null;const n=r.heads&&r.heads>1?r.heads:Math.max(r.rank,8);return 1-(r.rank-1)/(n-1)}
+function rec(runs){const a=[0,0,0,0];runs.forEach(r=>{if(!r.rank)return;a[Math.min(r.rank,4)-1]++});return a.join("-")}
+function analyzeShutuba(sh){
+ const R=sh.race,act=sh.horses.filter(h=>!h.scratched);
+ const kinAvg=act.filter(h=>h.kinryo).reduce((a,h,_,arr)=>a+h.kinryo/arr.length,0);
+ const oddsOk=act.filter(h=>h.odds).length>=Math.max(3,act.length*0.6);
+ const qmax=oddsOk?Math.max(...act.filter(h=>h.odds).map(h=>1/h.odds)):0;
+ const blend=Math.max(0,Math.min(1,(S.settings.marketBlend==null?30:S.settings.marketBlend)/100));
+ const today=Date.parse((currentRace&&currentRace.date||todayJST())+"T00:00:00+09:00");
+ // 末脚：直近3走の最速上がりで出走馬内の順位
+ const bestAg=new Map(act.map(h=>[h.no,Math.min(...h.past.slice(0,3).map(r=>r.agari).filter(Boolean),99)]));
+ const agRank=[...bestAg.entries()].filter(e=>e[1]<99).sort((a,b)=>a[1]-b[1]).map(e=>e[0]);
+ act.forEach(h=>{
+  const runs=h.past.filter(r=>r.rank),A={};
+  // 指数（近走の着順率を重み付け。距離・コースが近い走ほど重く見る）
+  const W=[1,.8,.6,.45,.35];let num=0,den=0;
+  runs.forEach((r,i)=>{let w=W[i]||.3;if(R.surf&&r.surf&&r.surf!==R.surf)w*=.6;if(R.dist&&r.dist&&Math.abs(r.dist-R.dist)>200)w*=.75;num+=w*perfOf(r);den+=w});
+  let form=den?55+40*(num/den):70;
+  const best3=Math.max(0,...runs.slice(0,3).map(perfOf));form+=runs.length?8*(best3-0.5):0;
+  const adj=[];
+  if(h.kinryo&&kinAvg){const k=-(h.kinryo-kinAvg)*0.8;form+=k;if(Math.abs(h.kinryo-kinAvg)>=1.5)adj.push("斤量"+h.kinryo+"kg（平均比"+(h.kinryo-kinAvg>0?"+":"")+(h.kinryo-kinAvg).toFixed(1)+"）")}
+  const last=h.past[0],days=last&&last.date?Math.round((today-Date.parse(last.date+"T00:00:00+09:00"))/86400000):null;
+  if(days!=null&&days>=90){form-=3;adj.push("休み明け"+days+"日")}
+  if(agRank.indexOf(h.no)>=0&&agRank.indexOf(h.no)<3){form+=2;adj.push("末脚上位（上がり"+bestAg.get(h.no).toFixed(1)+"）")}
+  let score=form;
+  if(oddsOk&&h.odds&&blend>0){const mkt=100+8*Math.log((1/h.odds)/qmax);score=(1-blend)*form+blend*mkt}
+  A.score=Math.round(score*10)/10;
+  // 脚質（通過順の最初のコーナー位置 ÷ 頭数）
+  const ps=h.past.map(r=>{const f=parseInt(String(r.pass).split("-")[0],10);return f>0?f/(r.heads||12):null}).filter(v=>v!=null);
+  const firsts=h.past.filter(r=>/^1-/.test(r.pass)).length;
+  const av=ps.length?ps.reduce((a,b)=>a+b,0)/ps.length:null;
+  A.style=av==null?"":av<=0.15||firsts>=2?"逃げ":av<=0.35?"先行":av<=0.65?"差し":"追込";
+  // 距離適性
+  const sameD=h.past.filter(r=>r.rank&&(!R.surf||r.surf===R.surf)&&R.dist&&Math.abs(r.dist-R.dist)<=200);
+  const t3=sameD.filter(r=>r.rank<=3).length;
+  A.distance=!R.dist?"":sameD.length?R.surf+R.dist+"±200m "+sameD.length+"戦"+rec(sameD)+(t3/sameD.length>=0.5?" 得意":t3?" 守備範囲":" 実績なし"):"同距離帯の経験なし";
+  if(last&&last.dist&&R.dist&&last.dist!==R.dist)A.distance+="（前走から"+(R.dist>last.dist?"延長+":"短縮")+(R.dist-last.dist)+"m）";
+  // 馬場適性
+  const byC={};h.past.filter(r=>r.rank&&r.cond).forEach(r=>{(byC[r.cond]=byC[r.cond]||[]).push(r)});
+  A.track=Object.keys(byC).length?Object.entries(byC).map(([c,rs])=>c+rec(rs)).join(" ")+(R.cond&&byC[R.cond]?"｜今日"+R.cond+"："+(byC[R.cond].some(r=>r.rank<=3)?"実績あり":"未好走"):R.cond?"｜今日"+R.cond+"は未経験":""):"データなし";
+  // 近走メモ
+  A.past=h.past.slice(0,3).map((r,i)=>(i===0?"前走":i+1+"走前")+" "+(r.date?r.date.slice(5).replace("-","/"):"")+(r.venue||"")+(r.surf||"")+(r.dist||"")+(r.cond?" "+r.cond:"")+" "+(r.rank?r.rank+"着":r.stopped?"中止":"?")+(r.heads?"/"+r.heads+"頭":"")+(r.ninki?" "+r.ninki+"人":"")+(r.pass?" 通過"+r.pass:"")+(r.agari?" 上"+r.agari:"")).join("／")||"近走データなし（初出走か取得失敗）";
+  // 短評
+  const c=[];
+  if(!runs.length)c.push("近走データなし");
+  else{
+   const lp=perfOf(runs[0]),ap=runs.reduce((a,r)=>a+perfOf(r),0)/runs.length;
+   if(runs[0].rank===1)c.push("前走勝ち");else if(runs[0].rank<=3)c.push("前走"+runs[0].rank+"着と好調");
+   else if(lp<ap-0.2)c.push("前走は凡走、巻き返し待ち");
+   if(runs.length>=3&&perfOf(runs[0])>perfOf(runs[1])&&perfOf(runs[1])>perfOf(runs[2]))c.push("着順が上昇中");
+   if(runs.filter(r=>r.rank<=2).length/runs.length>=0.5)c.push("連対率高い");
   }
-  if(!got.length)return alert("馬番・馬名を解析できませんでした（「最後のraw表示」で中身を確認できます）");
-  const s=ensureState(race),old=new Map(parseHorses(s.horseInput).map(h=>[h.no,h]));
-  s.horseInput=got.sort((a,b)=>a.no-b.no).map(g=>{const o=old.get(g.no);return o?[g.no,g.name,Number.isFinite(o.score)?o.score:"",o.style,o.memo,o.distance,o.track,o.past].join(","):g.no+","+g.name+",,,,,,"}).join("\n");
-  if(!headsOf(race))s.headsOverride=String(got.length);
-  computeState(s,race);if(raceKey(race)===raceKey(currentRace))renderCurrent();saveAppData();
-  log("出馬表取得 "+got.length+"頭（スコアは空欄＝未入力。入力するか「単勝オッズからスコア生成」を使ってください）");
- }catch(e){alert("出馬表の取得に失敗しました："+e.message)}
+  if(h.bodyDiff!=null&&Math.abs(h.bodyDiff)>=10)c.push("馬体重"+(h.bodyDiff>0?"+":"")+h.bodyDiff+"kg");
+  c.push(...adj);
+  if(oddsOk&&h.odds&&blend>0)c.push("市場評価"+Math.round(blend*100)+"%反映");
+  A.memo=c.join("・");
+  h.gen=A;
+ });
+ return act;
+}
+function shutubaToHorseInput(sh){
+ return analyzeShutuba(sh).sort((a,b)=>a.no-b.no).map(h=>[h.no,csvSafe(h.name),h.gen.score,csvSafe(h.gen.style),csvSafe(h.gen.memo),csvSafe(h.gen.distance),csvSafe(h.gen.track),csvSafe(h.gen.past)].join(",")).join("\n");
+}
+function patchRace(k,patch){
+ [S.races,S.watchList,...Object.values(S.cache)].forEach(list=>(list||[]).forEach(r=>{if(raceKey(r)===k)Object.assign(r,patch)}));
+ const s=S.raceStates[k];if(s&&s.race)Object.assign(s.race,patch);
+ if(currentRace&&raceKey(currentRace)===k)Object.assign(currentRace,patch);
+}
+async function fetchShutubaFor(race,quiet,force){
+ if(!race||!race.raceId){if(!quiet)alert("race_idが必要です");return false}
+ const s=ensureState(race),k=raceKey(race),base=race.org==="NAR"?"https://nar.netkeiba.com":"https://race.netkeiba.com";
+ if(!quiet)$("shutubaStatus").textContent="出馬表を取得中…";
+ const sh=parseShutuba(await fetchText(base+"/race/shutuba.html?race_id="+race.raceId));
+ if(!sh.horses.length){if(!quiet){$("shutubaStatus").textContent="出馬表を解析できませんでした（「最後のraw表示」で中身を確認できます）"}log("出馬表解析失敗 "+race.venue+race.raceNo);return false}
+ let pastOk=false;
+ try{const pm=parsePast(await fetchText(base+"/race/shutuba_past.html?race_id="+race.raceId));sh.horses.forEach(h=>{h.past=pm.get(h.no)||[]});pastOk=[...pm.values()].some(v=>v.length)}catch(e){}
+ sh.fetchedAt=nowStr();sh.pastOk=pastOk;s.shutuba=sh;
+ const act=sh.horses.filter(h=>!h.scratched);
+ const patch={heads:act.length+"頭"};
+ if(sh.race.surf&&sh.race.dist)patch.cond=sh.race.surf+sh.race.dist+"m";
+ if(sh.race.name&&(!race.name||/^\d+R$/.test(race.name)))patch.name=sh.race.name;
+ if(sh.race.time&&(!race.time||race.time==="00:00"))patch.time=sh.race.time;
+ patchRace(k,patch);
+ s.headsOverride=String(act.length);
+ if(force||!s.manualHorse||!parseHorses(s.horseInput).length){s.horseInput=shutubaToHorseInput(sh);s.manualHorse=false}
+ const winLines=act.filter(h=>h.odds).map(h=>"win,"+h.no+","+h.odds);
+ if(winLines.length&&!parseOdds(s.oddsInput).some(o=>o.type==="win"))s.oddsInput=winLines.join("\n")+(s.oddsInput?"\n"+s.oddsInput:"");
+ computeState(s,race);
+ if(k===raceKey(currentRace)){renderCurrent();renderRaceOrder()}
+ renderShutuba();saveAppData();
+ log("出馬表取得 "+race.venue+race.raceNo+" "+act.length+"頭"+(pastOk?"（近走あり）":"（近走なし）"));
+ return true;
+}
+function renderShutuba(){
+ const s=cur(),sh=s.shutuba,box=$("shutubaBox");if(!box)return;
+ if(!sh){box.innerHTML="<div class='note'>"+(currentRace&&currentRace.raceId?"出馬表は未取得です。":"race_idがないため取得できません。")+"</div>";$("shutubaStatus").textContent="";return}
+ const R=sh.race,heads=sh.horses.filter(h=>!h.scratched).length;
+ $("shutubaStatus").textContent="取得 "+sh.fetchedAt+"｜"+heads+"頭"+(sh.pastOk?"・近5走あり":"・近走は取得できず（指数は出馬表のみで仮計算）")+(s.manualHorse?"｜出走馬データは手修正中（自動上書きしません）":"");
+ analyzeShutuba(sh);
+ box.innerHTML="<div class='note ok'><b>"+esc(R.name||(currentRace?currentRace.name:""))+"</b>　"+esc([R.surf+R.dist+"m",R.cond&&"馬場"+R.cond,R.weather&&"天候"+R.weather,sh.race.time&&sh.race.time+"発走"].filter(Boolean).join("・"))+"</div>"+
+ "<div class='scroll'><table><thead><tr><th>枠</th><th>馬番</th><th>馬名</th><th>性齢</th><th>斤量</th><th>騎手</th><th>厩舎</th><th>馬体重</th><th>単勝</th><th>人気</th><th>近5走</th><th>脚質</th><th>指数</th><th>短評</th></tr></thead><tbody>"+
+ sh.horses.map(h=>{const g=h.gen||{};return"<tr"+(h.scratched?" class='past'":"")+"><td class='fr"+(h.waku||frameOf(h.no,heads))+"'>"+(h.waku||frameOf(h.no,heads))+"</td><td><b>"+h.no+"</b></td><td class='l nw'><b>"+esc(h.name)+"</b>"+(h.scratched?" <span class='buyTag skip'>取消・除外</span>":"")+"</td><td>"+esc(h.sexAge)+"</td><td>"+(h.kinryo||"-")+"</td><td class='nw'>"+esc(h.jockey)+"</td><td class='nw small'>"+esc(h.trainer)+"</td><td class='nw'>"+(h.bodyWeight?h.bodyWeight+(h.bodyDiff!=null?"("+(h.bodyDiff>0?"+":"")+h.bodyDiff+")":""):"-")+"</td><td>"+(h.odds||"-")+"</td><td>"+(h.ninki||"-")+"</td><td class='nw'>"+(h.past.length?h.past.map(r=>"<b style='color:"+(r.rank===1?"#c40000":r.rank<=3?"#174ea6":"#555")+"'>"+(r.rank||"×")+"</b>").join("-"):"-")+"</td><td>"+esc(g.style||"-")+"</td><td><b>"+(g.score!=null?g.score:"-")+"</b></td><td class='l small'>"+esc(g.memo||"")+"</td></tr>"}).join("")+"</tbody></table></div>";
 }
 function scoreFromOdds(){
  const s=cur(),win=parseOdds(s.oddsInput).filter(o=>o.type==="win");
@@ -1469,6 +1627,7 @@ async function autoBuyTick(){
    const s=ensureState(r);if(s.purchase)continue;
    const remain=t-Date.now();
    if(remain>cfg.minutes*60000||remain<10000)continue;   // 指定分前〜発走10秒前の間だけ確定
+   if(r.raceId&&!parseHorses(s.horseInput).length){try{await fetchShutubaFor(r,true,false)}catch(e){}}
    if(r.raceId){try{await fetchOddsFor(r,"自動購入前")}catch(e){}}
    computeState(s,r);
    if(!r.raceId)addSnapshot(s,r,"自動購入前");
@@ -1601,6 +1760,7 @@ function paperData(s,race){
  const sumInv=[...win.values()].reduce((a,o)=>a+1/o,0);
  const marketOk=win.size>=Math.max(3,Math.ceil(horses.length*0.6)); // 単勝が揃っていないと人気・市場評価は出さない
  const H=horses.map(h=>{const p=s.winRates[h.no]||0,o=win.get(h.no)||null;return{...h,p,pl:s.placeRates[h.no]||0,odds:o,ninki:ninki.get(h.no)||null,mp:o&&sumInv&&marketOk?(1/o)/sumInv:null,ev:o?p*o:null,frame:frameOf(h.no,heads),kind:styleKind(h.style)}});
+ const shMap=new Map(((s.shutuba&&s.shutuba.horses)||[]).map(x=>[x.no,x]));H.forEach(h=>{h.sh=shMap.get(h.no)||null;if(h.sh&&h.sh.waku)h.frame=h.sh.waku});
  const byP=[...H].sort((a,b)=>b.p-a.p);
  byP.forEach((h,i)=>h.rank=i+1);
  // 本紙印：◎○▲は指数順、☆は上位3頭以外で単勝EVが最も高い馬、△は残りの上位
@@ -1625,6 +1785,7 @@ function paperData(s,race){
 function fitPace(h,d){if(!h.kind)return"";return d.favored.includes(h.kind)?"想定の"+d.pace+"ペースは"+h.style+"脚質に追い風":"想定の"+d.pace+"ペースは"+h.style+"脚質にはやや逆風"}
 function horseLine(h,d,role){
  const bits=[];
+ if(h.sh)bits.push((h.sh.sexAge?h.sh.sexAge+"・":"")+(h.sh.kinryo?h.sh.kinryo+"kg・":"")+(h.sh.jockey?h.sh.jockey+"騎手。":""));
  bits.push(h.no+"番"+h.name+"はX96指数"+(Number.isFinite(h.score)?h.score:"未入力")+"、想定勝率"+pct(h.p)+"・複勝圏"+pct(h.pl)+"。");
  if(role==="◎"&&d.second){bits.push(d.gap>=8?"2位"+d.second.name+"に"+d.gap.toFixed(1)+"差をつけ、能力は一枚上。":d.gap>=3?"2位との差は"+d.gap.toFixed(1)+"で優位はあるが絶対ではない。":"2位との差はわずか"+d.gap.toFixed(1)+"。紙一重の本命で、混戦と見るべきだ。")}
  const f=fitPace(h,d);if(f)bits.push(f+"。");
@@ -1659,6 +1820,7 @@ function umabashira(d){
  row("EV班",h=>"<td class='mk' style='color:#174ea6'>"+(h.evMark||"")+"</td>")+
  row("市場",h=>"<td class='mk' style='color:#555'>"+(h.mkMark||"")+"</td>")+
  row("馬名",h=>"<td><div class='vn'>"+esc(h.name||"（未入力）")+"</div></td>")+
+ (d.s.shutuba?row("性齢",h=>"<td>"+esc(h.sh&&h.sh.sexAge||"-")+"</td>")+row("斤量",h=>"<td>"+(h.sh&&h.sh.kinryo||"-")+"</td>")+row("騎手",h=>"<td><div class='vt'>"+esc(h.sh&&h.sh.jockey||"-")+"</div></td>")+row("厩舎",h=>"<td><div class='vt'>"+esc(h.sh&&h.sh.trainer||"-")+"</div></td>")+row("馬体重",h=>"<td>"+(h.sh&&h.sh.bodyWeight?h.sh.bodyWeight+(h.sh.bodyDiff!=null?"<br><small>"+(h.sh.bodyDiff>0?"+":"")+h.sh.bodyDiff+"</small>":""):"-")+"</td>")+row("近5走",h=>"<td>"+(h.sh&&h.sh.past.length?h.sh.past.map(r=>"<div><b style='color:"+(r.rank===1?"#c40000":r.rank&&r.rank<=3?"#174ea6":"#555")+"'>"+(r.rank||"×")+"着</b><br><small>"+esc((r.venue||"")+(r.surf||"")+(r.dist||""))+"</small></div>").join(""):"-")+"</td>"):"")+
  row("脚質",h=>"<td>"+esc(h.style||"-")+"</td>")+
  row("指数",h=>{const v=Number.isFinite(h.score)?h.score:null,ht=v==null||maxS===minS?20:10+60*(v-minS)/(maxS-minS);return"<td><b>"+(v==null?"-":v)+"</b><div class='bar' style='height:"+ht.toFixed(0)+"px'></div></td>"})+
  row("指数順",h=>"<td>"+h.rank+"位</td>")+
